@@ -59,8 +59,8 @@ using leap_teleop_msgs::msg::HandPose;
 constexpr std::uint32_t kPollTimeoutMs = 10;
 constexpr auto kIdlePeriod = std::chrono::milliseconds(100);
 constexpr auto kFrameTimeout = std::chrono::milliseconds(250);
-constexpr char kDeviceFrame[] = "leap_device";
-constexpr char kHandFrame[] = "leap_teleop/hand";
+constexpr char kDeviceFrame[] = "leap_device_frame";
+constexpr char kHandFrame[] = "leap_teleop_frame";
 
 class LeapTrackerNode : public rclcpp::Node {
  public:

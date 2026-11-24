@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Adapts the teleop target to one robot. This is the only robot-specific package.
+Adapts the teleop delta to one robot. This is the only robot-specific package.
 
 ## Node
 

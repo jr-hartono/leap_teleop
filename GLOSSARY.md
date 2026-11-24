@@ -10,10 +10,10 @@ One frame of hand data from the Leap service, identified by a device frame id an
 device timestamp.
 _Avoid_: sample, capture, tick
 
-**Hand pose**:
-The palm position and orientation for one hand, as reported by the tracker in the device
-frame.
-_Avoid_: hand state, skeleton
+**Device hand pose**:
+The palm position and orientation for one hand, as reported by the tracker in
+`leap_device_frame`.
+_Avoid_: hand pose (when the device frame matters), hand state, skeleton
 
 **Palm frame**:
 The body-fixed frame carried by the palm. Its axes follow the LeapC basis
@@ -38,29 +38,29 @@ To capture a reference pose at the rising edge of engagement. The supervisor lat
 hand pose; the bridge latches the tool pose.
 _Avoid_: snapshot, anchor, zero
 
-**Hand target**:
-A scaled hand pose expressed in the operator frame, with a sequence number. Produced by
-the hand mapper; still independent of any robot.
-_Avoid_: retarget, mapped pose
+**Hand pose**:
+A scaled device hand pose expressed in `leap_teleop_frame`, with side and sequence.
+Carried by the `HandPose` message; still independent of any robot.
+_Avoid_: hand target, retarget, mapped pose
 
-**Teleop target**:
+**Teleop delta**:
 The robot-agnostic command contract: a pose delta relative to the latched tool pose,
-plus engagement state and a sequence number. Produced by the supervisor and consumed by
-bridges.
-_Avoid_: command, setpoint, intent
+plus engagement state and a sequence number. Carried by the `TeleopDelta` message and
+published on `pose_delta`.
+_Avoid_: teleop target, command, setpoint, intent
 
 **Hand mapper**:
-The component that converts a hand pose from the device frame into a hand target in base
-axes, applying rotation, gain, filtering and deadband.
+The component that converts a device hand pose into a `HandPose` in base axes, applying
+rotation, gain, filtering and deadband.
 _Avoid_: retargeter, mapper, transformer
 
 **Teleop supervisor**:
-The component that owns engagement, computes the teleop target, and decides when motion
+The component that owns engagement, computes the teleop delta, and decides when motion
 is allowed. It holds no robot state.
 _Avoid_: safety node, gate, controller
 
 **Robot bridge**:
-The only robot-specific component. It converts a teleop target into the control
+The only robot-specific component. It converts a teleop delta into the control
 interface of one robot.
 _Avoid_: adapter, driver, backend
 
@@ -79,19 +79,19 @@ The supervisor state in which motion is authorised and deltas are produced.
 _Avoid_: active, armed
 
 **Hold**:
-The supervisor state in which the key is held but tracking is unusable. No target deltas
-are produced and the arm keeps its position; recovery re-latches the hand pose.
+The supervisor state in which the key is held but tracking is unusable. No deltas are
+produced and the arm keeps its position; recovery re-latches the hand pose.
 _Avoid_: paused, suspended
 
 ## Frames
 
 **Device frame**:
-The Leap camera frame: x right, y up, z toward the operator, origin at the device.
+The frame `leap_device_frame`: x right, y up, z toward the operator, origin at the device.
 _Avoid_: camera frame, sensor frame
 
 **Operator frame**:
-The frame `leap_teleop/hand`, with the same axes as the base frame and an arbitrary
-origin. Hand targets are expressed in it; only deltas leave it, so the origin never
+The frame `leap_teleop_frame`, with the same axes as the base frame and an arbitrary
+origin. Hand poses are expressed in it; only deltas leave it, so the origin never
 matters.
 _Avoid_: hand frame, world frame
 

@@ -1,6 +1,6 @@
 # One teleop topic, side carried in the message
 
-The supervisor publishes all teleop targets on one topic and identifies the source hand
+The supervisor publishes all teleop deltas on one topic and identifies the source hand
 in `TeleopDelta.side`. Topic names do not encode a side, and the bridge does not filter
 by hand: a stack drives one robot from one hand, so the stream it receives is already the
 commands for that robot.

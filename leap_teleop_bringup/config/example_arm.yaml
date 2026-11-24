@@ -102,7 +102,7 @@ leap_teleop_supervisor:
     # gripper axes.
     rotation_frame: world
 
-    # Hand targets older than this are unusable and force HOLD.
+    # Hand poses older than this are unusable and force HOLD.
     # Range: (0, 1].
     tracking_timeout: 0.15
 

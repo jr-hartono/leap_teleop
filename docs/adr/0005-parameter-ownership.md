@@ -20,7 +20,7 @@ synchronised.
 ## Consequences
 
 - The bridge has no `side` and no `base_frame`, so it cannot contradict the supervisor.
-- Frames are named by the producer. The tracker emits the synthetic `leap_teleop/hand`
+- Frames are named by the producer. The tracker emits the synthetic `leap_teleop_frame`
   frame because its origin is the device, not the robot; the supervisor renames the delta
   into `base_frame`, which is a claim it is allowed to make.
 - Cross-node relations that cannot be validated locally (heartbeat versus timeout, lease

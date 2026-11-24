@@ -2,7 +2,7 @@
 # Kept publishing at 10 Hz with is_tracking false after device loss, so a dead
 # device is distinguishable from an empty field of view and from a dead tracker.
 
-# Stamp is arrival time on the ROS clock; frame_id is leap_device.
+# Stamp is arrival time on the ROS clock; frame_id is leap_device_frame.
 std_msgs/Header header
 
 # Device frame identifier, diagnostic only.

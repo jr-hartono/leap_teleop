@@ -5,7 +5,7 @@
 uint8 LEFT=1
 uint8 RIGHT=2
 
-# Stamp is the hand frame arrival time; frame_id is leap_teleop/hand.
+# Stamp is the hand frame arrival time; frame_id is leap_teleop_frame.
 std_msgs/Header header
 
 # LEFT or RIGHT, owned by the tracker.

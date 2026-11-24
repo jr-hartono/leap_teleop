@@ -16,10 +16,10 @@ means adding a bridge; it does not mean touching the tracking, mapping or safety
 │ (Gemini)    │   │ device +     │   │ supervisor         │   │ servo_bridge     │
 │             │   │ hand mapping │   │ engage + delta     │   │ robot-specific   │
 └─────────────┘   └──────────────┘   └────────────────────┘   └──────────────────┘
-       raw hands        hand targets         teleop targets          robot commands
+       raw hands        hand poses           pose deltas             robot commands
 ```
 
-The seam is the **teleop target**: a pose delta relative to the tool pose latched at
+The seam is the **teleop delta**: a pose delta relative to the tool pose latched at
 engagement, plus engagement state and a sequence number. Every robot bridge consumes the
 same type.
 
@@ -40,7 +40,7 @@ streaming, and bridges other than MoveIt Servo.
 
 | Package | Contents |
 |---|---|
-| `leap_teleop_msgs` | Messages: hands, hand targets, teleop targets, state, engagement |
+| `leap_teleop_msgs` | Messages: hands, hand poses, pose deltas, state, deadman |
 | `leap_teleop_core` | `leap_tracker`, `leap_teleop_supervisor`, `leap_teleop_deadman`; `leap_hand_mapping` library |
 | `leap_teleop_bridge` | `leap_moveit_servo_bridge` (further bridges later) |
 | `leap_teleop_bringup` | Launch files and the example configuration |

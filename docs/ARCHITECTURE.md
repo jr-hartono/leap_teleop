@@ -82,7 +82,7 @@ Messages:
 
 ```text
 # HandArray
-std_msgs/Header header              # stamp = arrival time; frame_id = leap_device
+std_msgs/Header header              # stamp = arrival time; frame_id = leap_device_frame
 uint64 tracking_frame_id
 uint64 device_timestamp_us
 float32 framerate                   # Hz; 0 when not yet estimated
@@ -95,7 +95,7 @@ uint64 visible_time_us
 geometry_msgs/Pose palm             # device frame, metres
 
 # HandPose
-std_msgs/Header header              # frame_id = leap_teleop/hand (constant)
+std_msgs/Header header              # frame_id = leap_teleop_frame (constant)
 uint8 side
 geometry_msgs/Pose pose
 uint32 sequence
@@ -151,7 +151,7 @@ connect is worse than no command.
 |---|---|---|
 | Device `D` | Leap camera | x right, y up, z toward the operator |
 | Palm `H` | `LEAP_PALM.orientation` | x = normal × direction, y = −normal, z = −direction |
-| Operator `O` | `leap_teleop/hand` | same axes as the base frame; origin arbitrary |
+| Operator `O` | `leap_teleop_frame` | same axes as the base frame; origin arbitrary |
 | Base `B` | robot | REP-103: x forward, y left, z up |
 | Tool `T` | robot TCP | robot-specific; only its origin matters |
 
@@ -309,7 +309,7 @@ populate them is either outside this component's control or fails safe without a
 | Stage | Rate | Timestamp |
 |---|---|---|
 | Tracker | device rate, ~90–120 Hz on v1 | `header.stamp` = arrival time on the ROS clock |
-| Supervisor | per hand target, plus `heartbeat_rate` | propagates the hand target stamp |
+| Supervisor | per hand pose, plus `heartbeat_rate` | propagates the hand pose stamp |
 | Bridge | 100 Hz timer (`publish_period` 0.01) | current ROS time |
 | Engage | `publish_rate`, default 20 Hz | current ROS time |
 

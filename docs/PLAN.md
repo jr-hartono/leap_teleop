@@ -71,7 +71,7 @@ Goal: hands on a topic, at device rate, with honest timestamps.
 | T09 | `LeapSDK` discovery: `find_package(LeapSDK QUIET)`, optional target, compile-time guard so the package builds without it. | Build with and without the SDK; no `find_package` error either way. |
 | T10 | Connection lifecycle: open, wait for device, handle disconnect and reconnect, set desktop tracking mode, clean shutdown. | Unplugging and replugging recovers without restarting the node. |
 | T11 | Publish `HandArray` on `hands`: device frame, arrival timestamp, `tracking_frame_id`, `device_timestamp_us`, `framerate`, both hands, `visible_time`. Keep publishing at 10 Hz with `is_tracking: false` after device loss. | `ros2 topic hz` shows the device rate; timestamps are monotonic; unplugging the device produces `is_tracking: false`, not silence. |
-| T12 | Wire `HandMapper` into the tracker; publish `hand_pose` for the configured hand in `leap_teleop/hand`. | Moving the tracked hand produces the expected operator-frame pose. |
+| T12 | Wire `HandMapper` into the tracker; publish `hand_pose` for the configured hand in `leap_teleop_frame`. | Moving the tracked hand produces the expected operator-frame pose. |
 
 Phase 2 ends with `hands` and `hand_pose` alive on real hardware. This is the first
 phase that needs the device plugged in.
@@ -84,7 +84,7 @@ Goal: the gate. Nothing moves without it.
 |---|---|---|
 | T13 | `leap_teleop_deadman`: `evdev` reader, device selected by `/dev/input/by-id` or by scanning keyboards, keydown and keyup, `publish_rate` output, clean handling of device disappearance. | Key release is detected within one publish period; unplugging the keyboard publishes `engaged: false`, not silence; the chosen device and the rejected candidates are logged. |
 | T14 | Supervisor FSM as a library: `IDLE`, `ENGAGED`, `HOLD`, with hand presence, hand age, freshness and reject inputs. | Transition table tests, including re-latch on recovery and escalation to `IDLE` when `hold_timeout` expires. |
-| T15 | Supervisor node: latch hand pose on rising edge, build delta, stamp `base_frame`, copy `side` from the hand target, publish `pose_delta` and `state`. | Key up → `IDLE`, no deltas; stale tracking → `HOLD`, `engaged: false`; recovery → `ENGAGED` with a re-latched reference and no jump. |
+| T15 | Supervisor node: latch hand pose on rising edge, build delta, stamp `base_frame`, copy `side` from the hand pose, publish `pose_delta` and `state`. | Key up → `IDLE`, no deltas; stale tracking → `HOLD`, `engaged: false`; recovery → `ENGAGED` with a re-latched reference and no jump. |
 | T16 | Parameter declaration and validation for every node: declare ranges, reject out-of-range values, refuse to start with a message naming the parameter and its range. | Boundary values accepted; out-of-range rejected; one GTest per parameter group. |
 
 Phase 3 ends with a target stream that can be inspected and trusted, with the arm absent.
