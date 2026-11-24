@@ -71,8 +71,10 @@ leap_tracker:
 leap_teleop_engage:
   ros__parameters:
     # Key held to authorise motion, by evdev key name.
-    # Choices: any lowercase name from <linux/input-event-codes.h>, for example
-    # space, leftctrl, f12. An unknown name is rejected at startup.
+    # Choices: space, leftctrl, rightctrl, leftshift, rightshift, leftalt,
+    # rightalt, leftmeta, rightmeta, enter, tab, escape, capslock, backspace,
+    # delete, insert, home, end, pageup, pagedown, up, down, left, right,
+    # a-z, 0-9 and f1-f12. An unknown name is rejected at startup.
     key: space
 
     # Keyboard device path, for example
@@ -91,6 +93,14 @@ leap_teleop_supervisor:
     # the tool pose. Stamped into TeleopTarget.header.frame_id. The bridge
     # resolves it with TF at startup and publishes nothing when it is missing.
     base_frame: base_link
+
+    # Composition order for the hand rotation delta.
+    # Choices: world, tool.
+    # world: delta = q_now * q_latched^-1, applied as q_target = delta * q_latched.
+    # tool:  delta = q_latched^-1 * q_now, applied as q_target = q_latched * delta.
+    # world is the default; tool is kept for A/B tests with differently defined
+    # gripper axes.
+    rotation_frame: world
 
     # Hand targets older than this are unusable and force HOLD.
     # Range: (0, 1].
@@ -118,7 +128,7 @@ leap_teleop_supervisor:
     # Validity of a single EngageState message. Must be at least three periods
     # of engage.publish_rate, so normal jitter does not look like a release.
     # Range: (0, 1].
-    engage_timeout: 0.1
+    engage_timeout: 0.15
 
 leap_moveit_servo_bridge:
   ros__parameters:
@@ -157,7 +167,12 @@ leap_moveit_servo_bridge:
     # or below Servo's incoming_command_timeout, so the bridge never outlives
     # Servo's patience.
     # Range: (0, 1].
-    command_timeout: 0.15
+    command_timeout: 0.09
+
+    # Period of the bridge's control tick, in seconds. Shorter values follow the
+    # target more closely but publish more often.
+    # Range: (0, 0.1].
+    publish_period: 0.01
 
     # Compute and log commands without publishing. Keep enabled until the
     # pipeline has been verified with the arm powered.
