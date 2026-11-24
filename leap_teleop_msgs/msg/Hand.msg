@@ -2,11 +2,11 @@
 # Constants are shared by Hand, HandPose and TeleopDelta.
 
 # Hand identifiers used by side fields.
-uint8 LEFT=1
-uint8 RIGHT=2
+string LEFT="left"
+string RIGHT="right"
 
 # LEFT or RIGHT.
-uint8 side
+string side
 
 # Cumulative visibility reported by the device, in microseconds.
 uint64 visible_time_us

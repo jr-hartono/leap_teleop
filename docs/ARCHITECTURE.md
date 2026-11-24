@@ -90,28 +90,28 @@ bool is_tracking                    # false when the device or service is unavai
 Hand[] hands
 
 # Hand
-uint8 side                          # LEFT=1, RIGHT=2
+string side                         # "left" or "right"
 uint64 visible_time_us
 geometry_msgs/Pose palm             # device frame, metres
 
 # HandPose
 std_msgs/Header header              # frame_id = leap_teleop_frame (constant)
-uint8 side
+string side
 geometry_msgs/Pose pose
 uint32 sequence
 
 # TeleopDelta
 std_msgs/Header header              # frame_id = base_frame
-uint8 side
-uint8 state                         # IDLE=0, ENGAGED=1, HOLD=2
+string side
+string state                        # "idle", "engaged" or "hold"
 bool engaged
 geometry_msgs/Transform delta       # pose change since engage; identity at engage
-uint8 rotation_frame                # WORLD=0, TOOL=1; composition order for the delta
+string rotation_frame               # "world" or "tool"; composition order for the delta
 uint32 sequence
 
 # TeleopState
 std_msgs/Header header
-uint8 state
+string state
 string reason
 bool tracking_ok
 bool hand_present
@@ -126,6 +126,12 @@ string source                       # evdev
 `HandArray` keeps publishing at 10 Hz with `is_tracking: false` when the device or the
 tracking service is gone, so the supervisor can distinguish "device died" from "hand left
 the field of view" and from "tracker crashed", without a separate health topic.
+
+Enumerated fields are lowercase strings. Each message declares constants for its allowed
+values, such as `TeleopState.ENGAGED` and `Hand.LEFT`. Consumers compare against those
+constants, never against raw literals, so `ros2 topic echo` and bag playback stay readable
+without giving up a single source of truth in code. The internal C++ enums are unchanged;
+conversion happens once at the publish and consume seams.
 
 A delta is a **displacement**, not a homogeneous transform. Position is added and
 rotation is composed; see [Composition](#composition).

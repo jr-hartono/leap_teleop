@@ -32,6 +32,18 @@ bool finite_pose(const geometry_msgs::msg::Pose& pose) {
          std::isfinite(pose.orientation.w);
 }
 
+std::string state_token(State state) {
+  switch (state) {
+    case State::kIdle:
+      return leap_teleop_msgs::msg::TeleopState::IDLE;
+    case State::kEngaged:
+      return leap_teleop_msgs::msg::TeleopState::ENGAGED;
+    case State::kHold:
+      return leap_teleop_msgs::msg::TeleopState::HOLD;
+  }
+  return "";
+}
+
 }  // namespace
 
 class SupervisorNode : public rclcpp::Node {
@@ -141,8 +153,9 @@ class SupervisorNode : public rclcpp::Node {
       target.header.stamp = now();
     }
     target.header.frame_id = base_frame_;
-    target.side = latest_hand_ ? latest_hand_->side : 0;
-    target.state = static_cast<std::uint8_t>(result.state);
+    target.side = latest_hand_ ? latest_hand_->side : "";
+    const std::string state_name = state_token(result.state);
+    target.state = state_name;
     target.engaged = engaged;
     if (engaged && latest_hand_) {
       target.delta = to_transform_msg(delta_builder_->compute(latest_hand_->pose));
@@ -154,7 +167,7 @@ class SupervisorNode : public rclcpp::Node {
 
     leap_teleop_msgs::msg::TeleopState state;
     state.header.stamp = now();
-    state.state = static_cast<std::uint8_t>(result.state);
+    state.state = state_name;
     state.reason = result.reason;
     state.tracking_ok = usable;
     state.hand_present = present;

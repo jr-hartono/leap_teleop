@@ -88,7 +88,7 @@ class LeapTrackerNode : public rclcpp::Node {
 
   std::atomic<bool> running_{false};
   std::atomic<bool> device_available_{false};
-  std::uint8_t target_side_ = Hand::RIGHT;
+  std::string target_side_ = Hand::RIGHT;
   std::uint32_t sequence_ = 0;
 
   std::mutex state_mutex_;

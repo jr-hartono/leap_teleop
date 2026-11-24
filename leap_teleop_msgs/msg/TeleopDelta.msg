@@ -2,26 +2,26 @@
 # composed with the pose latched by the bridge; this is not a full transform.
 
 # Hand identifiers used by side fields.
-uint8 LEFT=1
-uint8 RIGHT=2
+string LEFT="left"
+string RIGHT="right"
 
 # Supervisor states.
-uint8 IDLE=0
-uint8 ENGAGED=1
-uint8 HOLD=2
+string IDLE="idle"
+string ENGAGED="engaged"
+string HOLD="hold"
 
 # Rotation composition orders.
-uint8 WORLD=0
-uint8 TOOL=1
+string WORLD="world"
+string TOOL="tool"
 
 # Stamp is propagated from HandPose; frame_id is base_frame.
 std_msgs/Header header
 
 # Copied from HandPose, informational at the bridge.
-uint8 side
+string side
 
 # IDLE, ENGAGED or HOLD.
-uint8 state
+string state
 
 # True only while motion is authorised.
 bool engaged
@@ -30,7 +30,7 @@ bool engaged
 geometry_msgs/Transform delta
 
 # WORLD or TOOL, telling the bridge how to compose delta with the latched pose.
-uint8 rotation_frame
+string rotation_frame
 
 # Increasing counter, one per published target.
 uint32 sequence

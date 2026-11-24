@@ -4,6 +4,7 @@
 #include <Eigen/Geometry>
 #include <cstdint>
 #include <geometry_msgs/msg/pose.hpp>
+#include <string>
 
 #include "leap_teleop_core/filters.hpp"
 
@@ -24,7 +25,7 @@ struct HandPoseInput {
   Eigen::Vector3d position_m = Eigen::Vector3d::Zero();
   Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();
   double time_sec = 0.0;
-  std::uint8_t side = 0;
+  std::string side;
 };
 
 class HandMapper {

@@ -81,7 +81,8 @@ releasing it returns to `IDLE`. With the key held and unusable tracking, the sta
 (`engaged=false`). When tracking returns, the state stays `HOLD` with reason
 `retrigger_required`; release and press the key again to re-latch the hand pose. If
 `hold_timeout` expires first, the state becomes `IDLE`, and a held key still cannot resume
-motion: a fresh release and press is required.
+motion: a fresh release and press is required. `ros2 topic echo /leap_teleop/state` shows the
+lowercase wire values, for example `state: hold`.
 
 ## Step 4 — deadman stop
 
