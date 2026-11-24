@@ -1,5 +1,5 @@
 # One hand as reported by the tracking service.
-# Constants are shared by Hand, HandTarget and TeleopTarget.
+# Constants are shared by Hand, HandPose and TeleopDelta.
 
 # Hand identifiers used by side fields.
 uint8 LEFT=1

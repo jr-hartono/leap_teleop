@@ -1,4 +1,4 @@
-# Supervisor diagnosis, published alongside TeleopTarget.
+# Supervisor diagnosis, published alongside TeleopDelta.
 
 # Supervisor states.
 uint8 IDLE=0
@@ -20,5 +20,5 @@ bool tracking_ok
 # A hand is in the field of view.
 bool hand_present
 
-# Mirrors TeleopTarget.engaged.
+# Mirrors TeleopDelta.engaged.
 bool engaged

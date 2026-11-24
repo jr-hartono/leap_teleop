@@ -1,6 +1,6 @@
 # The seam is a pose delta, and the bridge owns the robot pose
 
-The robot-agnostic core publishes a `TeleopTarget`: a pose delta plus engagement state
+The robot-agnostic core publishes a `TeleopDelta`: a pose delta plus engagement state
 and a sequence number. It never learns the robot's current pose. Each robot bridge
 latches the tool pose from TF on the rising edge of engagement and composes
 `target = latched + delta` itself.

@@ -24,16 +24,16 @@ other than MoveIt Servo.
 ## Pipeline
 
 ```
- Leap v1 ──▶ leap_tracker ──▶ /leap_teleop/leap/hands      HandArray   (diagnostics)
+ Leap v1 ──▶ leap_tracker ──▶ /leap_teleop/hands           HandArray   (diagnostics)
                 │
-                └──────────▶ /leap_teleop/hand_target      HandTarget  (scaled, operator frame)
+                └──────────▶ /leap_teleop/hand_pose        HandPose  (scaled, operator frame)
                                         │
- /leap_teleop/engage ───────────────────┤
+ /leap_teleop/deadman ──────────────────┤
                                         ▼
                             leap_teleop_supervisor
                                         │
-                                        ├──▶ /leap_teleop/target   TeleopTarget (delta, state)
-                                        └──▶ /leap_teleop/state    TeleopState
+                                        ├──▶ /leap_teleop/pose_delta  TeleopDelta (delta, state)
+                                        └──▶ /leap_teleop/state       TeleopState
                                                     │
                                                     ▼
                                         leap_moveit_servo_bridge
@@ -72,10 +72,10 @@ default is `/leap_teleop/...` and `namespace:=/ur5` gives `/ur5/leap_teleop/...`
 
 | Topic | Type | Producer | Consumer |
 |---|---|---|---|
-| `leap/hands` | `leap_teleop_msgs/HandArray` | `leap_tracker` | RViz, diagnostics |
-| `hand_target` | `leap_teleop_msgs/HandTarget` | `leap_tracker` | supervisor |
-| `engage` | `leap_teleop_msgs/EngageState` | `leap_teleop_engage` | supervisor |
-| `target` | `leap_teleop_msgs/TeleopTarget` | supervisor | bridges |
+| `hands` | `leap_teleop_msgs/HandArray` | `leap_tracker` | RViz, diagnostics |
+| `hand_pose` | `leap_teleop_msgs/HandPose` | `leap_tracker` | supervisor |
+| `deadman` | `leap_teleop_msgs/DeadmanState` | `leap_teleop_engage` | supervisor |
+| `pose_delta` | `leap_teleop_msgs/TeleopDelta` | supervisor | bridges |
 | `state` | `leap_teleop_msgs/TeleopState` | supervisor | diagnostics |
 
 Messages:
@@ -94,13 +94,13 @@ uint8 side                          # LEFT=1, RIGHT=2
 uint64 visible_time_us
 geometry_msgs/Pose palm             # device frame, metres
 
-# HandTarget
+# HandPose
 std_msgs/Header header              # frame_id = leap_teleop/hand (constant)
 uint8 side
 geometry_msgs/Pose pose
 uint32 sequence
 
-# TeleopTarget
+# TeleopDelta
 std_msgs/Header header              # frame_id = base_frame
 uint8 side
 uint8 state                         # IDLE=0, ENGAGED=1, HOLD=2
@@ -117,7 +117,7 @@ bool tracking_ok
 bool hand_present
 bool engaged
 
-# EngageState
+# DeadmanState
 builtin_interfaces/Time stamp
 bool engaged
 string source                       # evdev
@@ -134,10 +134,10 @@ rotation is composed; see [Composition](#composition).
 
 | Topic | Reliability | Depth | Durability |
 |---|---|---|---|
-| `leap/hands` | best effort | 5 | volatile |
-| `hand_target` | reliable | 1 | volatile |
-| `engage` | reliable | 1 | volatile |
-| `target` | reliable | 1 | volatile |
+| `hands` | best effort | 5 | volatile |
+| `hand_pose` | reliable | 1 | volatile |
+| `deadman` | reliable | 1 | volatile |
+| `pose_delta` | reliable | 1 | volatile |
 | `state` | reliable | 1 | volatile |
 
 New commands are never replayed to a late subscriber: a latched command delivered on
@@ -248,7 +248,7 @@ tool origin keeps pure rotations in place.
 Engagement is a **deadman**: the operator holds a key, and motion is authorised only while
 the key is held, the hand is present, and tracking is fresh.
 
-- `leap_teleop_engage` reads the key through `evdev` and publishes `EngageState` at 20 Hz.
+- `leap_teleop_engage` reads the key through `evdev` and publishes `DeadmanState` at 20 Hz.
   The supervisor treats the last message as valid for `engage_timeout`.
 - The keyboard is selected by `/dev/input/by-id/...` when configured, otherwise the first
   keyboard found is used and logged together with the other candidates.
@@ -322,7 +322,7 @@ never copied into `header.stamp`. Stamping at arrival keeps the stack correct un
 
 `leap_moveit_servo_bridge` is the only robot-specific component in v0.1.
 
-- Subscribes to `target` and reads the frame from `header.frame_id`; no base-frame
+- Subscribes to `pose_delta` and reads the frame from `header.frame_id`; no base-frame
   parameter exists, so the bridge cannot disagree with the supervisor about it.
 - On the rising edge of `engaged`, latches the tool pose with TF from that frame to
   `tool_frame`.
@@ -348,12 +348,12 @@ instead of being configured twice.
 
 | Knob | Owner | Carried in the message |
 |---|---|---|
-| `side` (which hand) | tracker | `HandTarget.side`, copied to `TeleopTarget.side` |
+| `side` (which hand) | tracker | `HandPose.side`, copied to `TeleopDelta.side` |
 | `mount_mode`, hand→robot yaw, gains, filters, deadband | tracker | — |
-| `base_frame`, `rotation_frame` | supervisor | `TeleopTarget.header.frame_id` (base frame only) |
+| `base_frame`, `rotation_frame` | supervisor | `TeleopDelta.header.frame_id` (base frame only) |
 | Engage timeouts, `hold_timeout`, `heartbeat_rate` | supervisor | `TeleopState` |
 | `tool_frame`, `planning_frame`, Servo topic, `kp_*`, speed caps, `command_timeout`, `dry_run` | bridge | — |
-| Key, input device, publish rate | engage | `EngageState` |
+| Key, input device, publish rate | engage | `DeadmanState` |
 
 The bridge has no `side` and no `base_frame`. A second arm is a second stack in its own
 namespace, not a second filter on a shared stream.
@@ -382,7 +382,7 @@ Recommended split when the robot stack is containerised:
 LeapC talks to `leapd` over a local IPC channel, not a documented network API. The
 supported pattern is service and client on the same host. Running the tracker inside a
 container therefore means installing the service in that container and passing the USB
-device through; running the tracker on the host and publishing `leap/hands` over DDS is
+device through; running the tracker on the host and publishing `hands` over DDS is
 the simpler deployment.
 
 ## Testing

@@ -9,15 +9,15 @@ Message definitions for the teleoperation pipeline. This package has no nodes.
 | Message | Role |
 | --- | --- |
 | `HandArray`, `Hand` | All tracked hands in one device frame; diagnostics and device state. |
-| `HandTarget` | Scaled palm pose in the operator frame, with side and sequence. |
-| `TeleopTarget` | The seam: base-frame pose delta, engagement state, sequence. |
+| `HandPose` | Scaled palm pose in the operator frame, with side and sequence. |
+| `TeleopDelta` | The seam: base-frame pose delta, engagement state, sequence. |
 | `TeleopState` | Supervisor diagnosis: state, reason, tracking and hand flags. |
-| `EngageState` | Deadman key state, published from `evdev`. |
+| `DeadmanState` | Deadman key state, published from `evdev`. |
 
 Inspect a definition with:
 
 ```sh
-ros2 interface show leap_teleop_msgs/msg/TeleopTarget
+ros2 interface show leap_teleop_msgs/msg/TeleopDelta
 ```
 
 ## Details

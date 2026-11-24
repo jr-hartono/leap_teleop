@@ -14,10 +14,10 @@ uint8 HOLD=2
 uint8 WORLD=0
 uint8 TOOL=1
 
-# Stamp is propagated from HandTarget; frame_id is base_frame.
+# Stamp is propagated from HandPose; frame_id is base_frame.
 std_msgs/Header header
 
-# Copied from HandTarget, informational at the bridge.
+# Copied from HandPose, informational at the bridge.
 uint8 side
 
 # IDLE, ENGAGED or HOLD.

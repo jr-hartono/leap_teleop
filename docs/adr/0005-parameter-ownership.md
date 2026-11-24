@@ -2,8 +2,8 @@
 
 A parameter that describes a fact shared by several components is configured in exactly
 one place. Consumers receive the fact in the message instead: the tracker owns which hand
-is used and the supervisor copies `side` from `HandTarget`; the supervisor owns
-`base_frame` and stamps it into `TeleopTarget.header.frame_id`; the bridge reads the frame
+is used and the supervisor copies `side` from `HandPose`; the supervisor owns
+`base_frame` and stamps it into `TeleopDelta.header.frame_id`; the bridge reads the frame
 from the message and resolves TF in it. Duplicated knobs were removed rather than
 synchronised.
 

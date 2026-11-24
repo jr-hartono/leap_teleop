@@ -9,7 +9,7 @@
 
 #include "leap_teleop_core/keyboard_deadman.hpp"
 #include "leap_teleop_core/parameters.hpp"
-#include "leap_teleop_msgs/msg/engage_state.hpp"
+#include "leap_teleop_msgs/msg/deadman_state.hpp"
 
 namespace leap_teleop {
 
@@ -47,8 +47,8 @@ class EngageNode : public rclcpp::Node {
     deadman_ = std::make_unique<KeyboardDeadman>(selected, key_code);
     deadman_->open_device();
 
-    publisher_ = create_publisher<leap_teleop_msgs::msg::EngageState>(
-        "engage", rclcpp::QoS(rclcpp::KeepLast(1)));
+    publisher_ = create_publisher<leap_teleop_msgs::msg::DeadmanState>(
+        "deadman", rclcpp::QoS(rclcpp::KeepLast(1)));
     const auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::duration<double>(1.0 / publish_rate_));
     timer_ = create_wall_timer(period, [this]() { on_tick(); });
@@ -62,7 +62,7 @@ class EngageNode : public rclcpp::Node {
                   deadman_->device_path().c_str());
       loss_reported_ = true;
     }
-    leap_teleop_msgs::msg::EngageState message;
+    leap_teleop_msgs::msg::DeadmanState message;
     message.stamp = now();
     message.engaged = deadman_->healthy() && deadman_->engaged();
     message.source = "evdev";
@@ -72,7 +72,7 @@ class EngageNode : public rclcpp::Node {
   double publish_rate_ = 20.0;
   bool loss_reported_ = false;
   std::unique_ptr<KeyboardDeadman> deadman_;
-  rclcpp::Publisher<leap_teleop_msgs::msg::EngageState>::SharedPtr publisher_;
+  rclcpp::Publisher<leap_teleop_msgs::msg::DeadmanState>::SharedPtr publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
 

@@ -45,7 +45,7 @@ hardware.
 | T01 | Create the four packages: `leap_teleop_msgs`, `leap_teleop_core`, `leap_teleop_bridge`, `leap_teleop_bringup`. `ament_cmake_auto`, C++17, `package.xml` with explicit deps and Apache-2.0 license. | `colcon build` succeeds on a bare Jazzy install. |
 | T02 | Repo hygiene: `.gitignore` (`build/ install/ log/`), `.clang-format`, `.editorconfig`, a short `docs/DEVELOPMENT.md` with build and test commands. | Formatting is one command; docs match a fresh clone. |
 | T03 | CI: one GitHub Actions workflow, `ros:jazzy` container, `colcon build` + `colcon test`, no hardware deps. | Green on a PR that only touches docs. |
-| T04 | Message definitions: `HandArray`, `Hand`, `HandTarget`, `TeleopTarget`, `TeleopState`, `EngageState`, with explicit enum values. | `ros2 interface show` works for all; fields match ARCHITECTURE. |
+| T04 | Message definitions: `HandArray`, `Hand`, `HandPose`, `TeleopDelta`, `TeleopState`, `DeadmanState`, with explicit enum values. | `ros2 interface show` works for all; fields match ARCHITECTURE. |
 
 Phase 0 ends with a workspace that a stranger can clone, build and test.
 
@@ -57,7 +57,7 @@ Goal: the maths, fully tested, with no ROS node and no device.
 |---|---|---|
 | T05 | `frames` module: Leap→ROS rotation, yaw, mm→m, quaternion helpers (normalise, multiply, delta, slerp). | Unit tests assert `det(R)=1`, orthonormality, and the three axis mappings in the doc table. |
 | T06 | Filters: One-Euro on position, slerp low-pass on orientation, deadband with hysteresis, time-based so behaviour does not change with frame rate. | Step-response and stationary-noise tests; no NaN on zero dt; deadband does not chatter. |
-| T07 | `HandMapper`: hand pose (device frame) → `HandTarget` (operator frame), fixed gain, yaw, side selection. | Golden-vector tests for yaw 0 and 180; hand down → −z; hand away → +x. |
+| T07 | `HandMapper`: hand pose (device frame) → `HandPose` (operator frame), fixed gain, yaw, side selection. | Golden-vector tests for yaw 0 and 180; hand down → −z; hand away → +x. |
 | T08 | `DeltaBuilder`: latched pose + current pose → `Transform` delta; base-axis translation, world-frame rotation. | Pure rotation leaves translation unchanged (the bug called out in ARCHITECTURE); 90° yaw reported correctly; identity at engagement. |
 
 Phase 1 ends with `colcon test` covering the whole mapping contract.
@@ -70,10 +70,10 @@ Goal: hands on a topic, at device rate, with honest timestamps.
 |---|---|---|
 | T09 | `LeapSDK` discovery: `find_package(LeapSDK QUIET)`, optional target, compile-time guard so the package builds without it. | Build with and without the SDK; no `find_package` error either way. |
 | T10 | Connection lifecycle: open, wait for device, handle disconnect and reconnect, set desktop tracking mode, clean shutdown. | Unplugging and replugging recovers without restarting the node. |
-| T11 | Publish `HandArray` on `leap/hands`: device frame, arrival timestamp, `tracking_frame_id`, `device_timestamp_us`, `framerate`, both hands, `visible_time`. Keep publishing at 10 Hz with `is_tracking: false` after device loss. | `ros2 topic hz` shows the device rate; timestamps are monotonic; unplugging the device produces `is_tracking: false`, not silence. |
-| T12 | Wire `HandMapper` into the tracker; publish `hand_target` for the configured hand in `leap_teleop/hand`. | Moving the tracked hand produces the expected operator-frame pose. |
+| T11 | Publish `HandArray` on `hands`: device frame, arrival timestamp, `tracking_frame_id`, `device_timestamp_us`, `framerate`, both hands, `visible_time`. Keep publishing at 10 Hz with `is_tracking: false` after device loss. | `ros2 topic hz` shows the device rate; timestamps are monotonic; unplugging the device produces `is_tracking: false`, not silence. |
+| T12 | Wire `HandMapper` into the tracker; publish `hand_pose` for the configured hand in `leap_teleop/hand`. | Moving the tracked hand produces the expected operator-frame pose. |
 
-Phase 2 ends with `leap/hands` and `hand_target` alive on real hardware. This is the first
+Phase 2 ends with `hands` and `hand_pose` alive on real hardware. This is the first
 phase that needs the device plugged in.
 
 ### Phase 3 — Engagement and supervisor
@@ -84,7 +84,7 @@ Goal: the gate. Nothing moves without it.
 |---|---|---|
 | T13 | `leap_teleop_engage`: `evdev` reader, device selected by `/dev/input/by-id` or by scanning keyboards, keydown and keyup, `publish_rate` output, clean handling of device disappearance. | Key release is detected within one publish period; unplugging the keyboard publishes `engaged: false`, not silence; the chosen device and the rejected candidates are logged. |
 | T14 | Supervisor FSM as a library: `IDLE`, `ENGAGED`, `HOLD`, with hand presence, hand age, freshness and reject inputs. | Transition table tests, including re-latch on recovery and escalation to `IDLE` when `hold_timeout` expires. |
-| T15 | Supervisor node: latch hand pose on rising edge, build delta, stamp `base_frame`, copy `side` from the hand target, publish `target` and `state`. | Key up → `IDLE`, no deltas; stale tracking → `HOLD`, `engaged: false`; recovery → `ENGAGED` with a re-latched reference and no jump. |
+| T15 | Supervisor node: latch hand pose on rising edge, build delta, stamp `base_frame`, copy `side` from the hand target, publish `pose_delta` and `state`. | Key up → `IDLE`, no deltas; stale tracking → `HOLD`, `engaged: false`; recovery → `ENGAGED` with a re-latched reference and no jump. |
 | T16 | Parameter declaration and validation for every node: declare ranges, reject out-of-range values, refuse to start with a message naming the parameter and its range. | Boundary values accepted; out-of-range rejected; one GTest per parameter group. |
 
 Phase 3 ends with a target stream that can be inspected and trusted, with the arm absent.
@@ -95,7 +95,7 @@ Goal: motion on the real arm, bridge dry-run first.
 
 | ID | Ticket | Acceptance |
 |---|---|---|
-| T17 | `leap_moveit_servo_bridge` skeleton: subscribe to `target`, read the frame from the message, latch the tool pose on the rising edge of `engaged`, `target = latched + delta`, `twist = Kp · error`, clamp to speed caps, publish `TwistStamped` in `planning_frame`. `dry_run` default true. | In dry run, commands are logged and nothing is published; the logged twist matches the delta for a known target. |
+| T17 | `leap_moveit_servo_bridge` skeleton: subscribe to `pose_delta`, read the frame from the message, latch the tool pose on the rising edge of `engaged`, `target = latched + delta`, `twist = Kp · error`, clamp to speed caps, publish `TwistStamped` in `planning_frame`. `dry_run` default true. | In dry run, commands are logged and nothing is published; the logged twist matches the delta for a known target. |
 | T18 | Failure handling: stale target, `engaged: false`, TF failure, missing Servo node → stop publishing, log a reason once, never publish a stale command. | Killing the supervisor stops bridge output; a missing frame at startup produces a clear error and no publishing. |
 | T19 | `leap_teleop_bringup`: launch file composing tracker, engage, supervisor and bridge; `namespace` and `params_file` arguments; the example config as default. | One launch command with a robot argument starts the pipeline; `dry_run` is the default; an external params file overrides single values. |
 | T20 | Real-arm commissioning: Servo configured with conservative velocity and acceleration limits, the arm's working area documented, operator briefed on the deadman. | Documented checklist in `docs/COMMISSIONING.md`, signed off by the operator. |

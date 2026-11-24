@@ -1,13 +1,13 @@
 # One teleop topic, side carried in the message
 
 The supervisor publishes all teleop targets on one topic and identifies the source hand
-in `TeleopTarget.side`. Topic names do not encode a side, and the bridge does not filter
+in `TeleopDelta.side`. Topic names do not encode a side, and the bridge does not filter
 by hand: a stack drives one robot from one hand, so the stream it receives is already the
 commands for that robot.
 
 ## Considered Options
 
-- **Per-side topics** (`/teleop/left/target`, `/teleop/right/target`) — convenient for two
+- **Per-side topics** (`/teleop/left/pose_delta`, `/teleop/right/pose_delta`) — convenient for two
   simultaneous arms, but forces every consumer to know which sides exist and makes a
   one-arm setup carry structure it does not use.
 - **Aggregate topic with a side field** — one stream per stack, side available for

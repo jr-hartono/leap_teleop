@@ -12,10 +12,10 @@
 #include "leap_teleop_core/delta_builder.hpp"
 #include "leap_teleop_core/parameters.hpp"
 #include "leap_teleop_core/supervisor_fsm.hpp"
-#include "leap_teleop_msgs/msg/engage_state.hpp"
-#include "leap_teleop_msgs/msg/hand_target.hpp"
+#include "leap_teleop_msgs/msg/deadman_state.hpp"
+#include "leap_teleop_msgs/msg/hand_pose.hpp"
 #include "leap_teleop_msgs/msg/teleop_state.hpp"
-#include "leap_teleop_msgs/msg/teleop_target.hpp"
+#include "leap_teleop_msgs/msg/teleop_delta.hpp"
 
 namespace leap_teleop {
 
@@ -53,19 +53,19 @@ class SupervisorNode : public rclcpp::Node {
     delta_builder_ = std::make_unique<DeltaBuilder>(frame_);
     fsm_ = std::make_unique<SupervisorFsm>(hold_timeout);
 
-    hand_subscription_ = create_subscription<leap_teleop_msgs::msg::HandTarget>(
-        "hand_target", rclcpp::QoS(rclcpp::KeepLast(1)),
-        [this](const leap_teleop_msgs::msg::HandTarget::SharedPtr message) {
-          on_hand_target(*message);
+    hand_subscription_ = create_subscription<leap_teleop_msgs::msg::HandPose>(
+        "hand_pose", rclcpp::QoS(rclcpp::KeepLast(1)),
+        [this](const leap_teleop_msgs::msg::HandPose::SharedPtr message) {
+          on_hand_pose(*message);
         });
-    engage_subscription_ = create_subscription<leap_teleop_msgs::msg::EngageState>(
-        "engage", rclcpp::QoS(rclcpp::KeepLast(1)),
-        [this](const leap_teleop_msgs::msg::EngageState::SharedPtr message) {
+    engage_subscription_ = create_subscription<leap_teleop_msgs::msg::DeadmanState>(
+        "deadman", rclcpp::QoS(rclcpp::KeepLast(1)),
+        [this](const leap_teleop_msgs::msg::DeadmanState::SharedPtr message) {
           latest_engage_ = *message;
         });
 
-    target_publisher_ = create_publisher<leap_teleop_msgs::msg::TeleopTarget>(
-        "target", rclcpp::QoS(rclcpp::KeepLast(1)));
+    target_publisher_ = create_publisher<leap_teleop_msgs::msg::TeleopDelta>(
+        "pose_delta", rclcpp::QoS(rclcpp::KeepLast(1)));
     state_publisher_ = create_publisher<leap_teleop_msgs::msg::TeleopState>(
         "state", rclcpp::QoS(rclcpp::KeepLast(1)));
 
@@ -75,7 +75,7 @@ class SupervisorNode : public rclcpp::Node {
   }
 
  private:
-  void on_hand_target(const leap_teleop_msgs::msg::HandTarget& message) {
+  void on_hand_pose(const leap_teleop_msgs::msg::HandPose& message) {
     const double time = now().seconds();
     if (!have_hand_ || time - last_hand_time_ > tracking_timeout_) {
       hand_first_seen_ = time;
@@ -134,7 +134,7 @@ class SupervisorNode : public rclcpp::Node {
       delta_builder_->latch(latest_hand_->pose);
     }
 
-    leap_teleop_msgs::msg::TeleopTarget target;
+    leap_teleop_msgs::msg::TeleopDelta target;
     if (latest_hand_) {
       target.header.stamp = latest_hand_->header.stamp;
     } else {
@@ -148,8 +148,8 @@ class SupervisorNode : public rclcpp::Node {
       target.delta = to_transform_msg(delta_builder_->compute(latest_hand_->pose));
     }
     target.rotation_frame = (frame_ == RotationFrame::kTool)
-                                ? leap_teleop_msgs::msg::TeleopTarget::TOOL
-                                : leap_teleop_msgs::msg::TeleopTarget::WORLD;
+                                ? leap_teleop_msgs::msg::TeleopDelta::TOOL
+                                : leap_teleop_msgs::msg::TeleopDelta::WORLD;
     target.sequence = ++sequence_;
 
     leap_teleop_msgs::msg::TeleopState state;
@@ -178,14 +178,14 @@ class SupervisorNode : public rclcpp::Node {
   std::uint32_t last_sequence_ = 0;
   std::uint32_t sequence_ = 0;
 
-  std::optional<leap_teleop_msgs::msg::HandTarget> latest_hand_;
-  std::optional<leap_teleop_msgs::msg::EngageState> latest_engage_;
+  std::optional<leap_teleop_msgs::msg::HandPose> latest_hand_;
+  std::optional<leap_teleop_msgs::msg::DeadmanState> latest_engage_;
   std::unique_ptr<DeltaBuilder> delta_builder_;
   std::unique_ptr<SupervisorFsm> fsm_;
 
-  rclcpp::Subscription<leap_teleop_msgs::msg::HandTarget>::SharedPtr hand_subscription_;
-  rclcpp::Subscription<leap_teleop_msgs::msg::EngageState>::SharedPtr engage_subscription_;
-  rclcpp::Publisher<leap_teleop_msgs::msg::TeleopTarget>::SharedPtr target_publisher_;
+  rclcpp::Subscription<leap_teleop_msgs::msg::HandPose>::SharedPtr hand_subscription_;
+  rclcpp::Subscription<leap_teleop_msgs::msg::DeadmanState>::SharedPtr engage_subscription_;
+  rclcpp::Publisher<leap_teleop_msgs::msg::TeleopDelta>::SharedPtr target_publisher_;
   rclcpp::Publisher<leap_teleop_msgs::msg::TeleopState>::SharedPtr state_publisher_;
   rclcpp::TimerBase::SharedPtr heartbeat_;
 };

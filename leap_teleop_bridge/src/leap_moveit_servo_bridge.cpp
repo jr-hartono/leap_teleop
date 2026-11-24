@@ -17,7 +17,7 @@
 #include "leap_teleop_core/delta_builder.hpp"
 #include "leap_teleop_core/frames.hpp"
 #include "leap_teleop_core/parameters.hpp"
-#include "leap_teleop_msgs/msg/teleop_target.hpp"
+#include "leap_teleop_msgs/msg/teleop_delta.hpp"
 
 namespace leap_teleop {
 
@@ -67,9 +67,9 @@ class MoveItServoBridge : public rclcpp::Node {
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-    target_subscription_ = create_subscription<leap_teleop_msgs::msg::TeleopTarget>(
-        "target", rclcpp::QoS(rclcpp::KeepLast(1)),
-        [this](const leap_teleop_msgs::msg::TeleopTarget::SharedPtr message) {
+    target_subscription_ = create_subscription<leap_teleop_msgs::msg::TeleopDelta>(
+        "pose_delta", rclcpp::QoS(rclcpp::KeepLast(1)),
+        [this](const leap_teleop_msgs::msg::TeleopDelta::SharedPtr message) {
           on_target(*message);
         });
     command_publisher_ =
@@ -85,7 +85,7 @@ class MoveItServoBridge : public rclcpp::Node {
   }
 
  private:
-  void on_target(const leap_teleop_msgs::msg::TeleopTarget& message) {
+  void on_target(const leap_teleop_msgs::msg::TeleopDelta& message) {
     const bool rising = message.engaged && !last_engaged_;
     last_engaged_ = message.engaged;
     target_ = message;
@@ -136,7 +136,7 @@ class MoveItServoBridge : public rclcpp::Node {
         const geometry_msgs::msg::Pose current = pose_from_transform(current_transform.transform);
 
         const RotationFrame frame =
-            (target_.rotation_frame == leap_teleop_msgs::msg::TeleopTarget::TOOL)
+            (target_.rotation_frame == leap_teleop_msgs::msg::TeleopDelta::TOOL)
                 ? RotationFrame::kTool
                 : RotationFrame::kWorld;
         const TransformDelta delta = delta_from_transform_msg(target_.delta, frame);
@@ -208,12 +208,12 @@ class MoveItServoBridge : public rclcpp::Node {
   bool latched_ = false;
   std::string last_reason_ = "no_target";
 
-  leap_teleop_msgs::msg::TeleopTarget target_;
+  leap_teleop_msgs::msg::TeleopDelta target_;
   geometry_msgs::msg::Pose latched_tool_;
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-  rclcpp::Subscription<leap_teleop_msgs::msg::TeleopTarget>::SharedPtr target_subscription_;
+  rclcpp::Subscription<leap_teleop_msgs::msg::TeleopDelta>::SharedPtr target_subscription_;
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr command_publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
 };

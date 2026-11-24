@@ -90,7 +90,7 @@ leap_teleop_engage:
 leap_teleop_supervisor:
   ros__parameters:
     # Frame in which the teleop delta is expressed and from which bridges latch
-    # the tool pose. Stamped into TeleopTarget.header.frame_id. The bridge
+    # the tool pose. Stamped into TeleopDelta.header.frame_id. The bridge
     # resolves it with TF at startup and publishes nothing when it is missing.
     base_frame: base_link
 
@@ -119,13 +119,13 @@ leap_teleop_supervisor:
     # Range: [0, 60].
     hold_timeout: 2.0
 
-    # Minimum rate of TeleopTarget publication while engaged or holding. Must
+    # Minimum rate of TeleopDelta publication while engaged or holding. Must
     # exceed 1 / bridge.command_timeout, or the bridge treats the stream as
     # dead.
     # Range: [5, 100].
     heartbeat_rate: 20.0
 
-    # Validity of a single EngageState message. Must be at least three periods
+    # Validity of a single DeadmanState message. Must be at least three periods
     # of engage.publish_rate, so normal jitter does not look like a release.
     # Range: (0, 1].
     engage_timeout: 0.15
@@ -133,12 +133,12 @@ leap_teleop_supervisor:
 leap_moveit_servo_bridge:
   ros__parameters:
     # Frame of the rotation pivot, resolved relative to the frame named in
-    # TeleopTarget. Should be the real grasp point; it may differ from the IK
+    # TeleopDelta. Should be the real grasp point; it may differ from the IK
     # link.
     tool_frame: tool0
 
     # Frame MoveIt Servo expects twists in. The delta is transformed from
-    # TeleopTarget's frame into this one.
+    # TeleopDelta's frame into this one.
     planning_frame: base_link
 
     # Servo's cartesian command topic. Must match servo_node's
@@ -163,7 +163,7 @@ leap_moveit_servo_bridge:
     # Range: (0, 3].
     max_angular_speed: 0.5
 
-    # Time without a fresh TeleopTarget after which publication stops. Keep at
+    # Time without a fresh TeleopDelta after which publication stops. Keep at
     # or below Servo's incoming_command_timeout, so the bridge never outlives
     # Servo's patience.
     # Range: (0, 1].

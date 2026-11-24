@@ -6,10 +6,10 @@ Hand tracking, mapping, engagement and supervision, independent of any robot.
 
 ## Nodes and library
 
-- `leap_tracker` — publishes `/leap_teleop/leap/hands` (`HandArray`) and
-  `/leap_teleop/hand_target` (`HandTarget`). Built only when LeapSDK is found.
-- `leap_teleop_engage` — publishes `/leap_teleop/engage` (`EngageState`) from the `evdev` key.
-- `leap_teleop_supervisor` — publishes `/leap_teleop/target` (`TeleopTarget`) and
+- `leap_tracker` — publishes `/leap_teleop/hands` (`HandArray`) and
+  `/leap_teleop/hand_pose` (`HandPose`). Built only when LeapSDK is found.
+- `leap_teleop_engage` — publishes `/leap_teleop/deadman` (`DeadmanState`) from the `evdev` key.
+- `leap_teleop_supervisor` — publishes `/leap_teleop/pose_delta` (`TeleopDelta`) and
   `/leap_teleop/state` (`TeleopState`).
 - `leap_hand_mapping` — library for frames, filters, deadband, delta composition and the
   supervisor FSM.

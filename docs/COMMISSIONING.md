@@ -37,8 +37,8 @@ Confirm these topics exist under the `leap_teleop` namespace (default `/leap_tel
 ros2 topic list | grep leap_teleop
 ```
 
-Expected: `/leap_teleop/leap/hands` (`HandArray`), `/leap_teleop/hand_target` (`HandTarget`),
-`/leap_teleop/engage` (`EngageState`), `/leap_teleop/target` (`TeleopTarget`),
+Expected: `/leap_teleop/hands` (`HandArray`), `/leap_teleop/hand_pose` (`HandPose`),
+`/leap_teleop/deadman` (`DeadmanState`), `/leap_teleop/pose_delta` (`TeleopDelta`),
 `/leap_teleop/state` (`TeleopState`).
 
 ## Step 3 — tracking and state transitions
@@ -46,7 +46,7 @@ Expected: `/leap_teleop/leap/hands` (`HandArray`), `/leap_teleop/hand_target` (`
 Inspect `is_tracking` and the state fields with no hand in view, then with a hand present:
 
 ```sh
-ros2 topic echo /leap_teleop/leap/hands
+ros2 topic echo /leap_teleop/hands
 ros2 topic echo /leap_teleop/state
 ```
 

@@ -6,7 +6,7 @@ Adapts the teleop target to one robot. This is the only robot-specific package.
 
 ## Node
 
-`leap_moveit_servo_bridge` subscribes to `target` and publishes `geometry_msgs/TwistStamped`
+`leap_moveit_servo_bridge` subscribes to `pose_delta` and publishes `geometry_msgs/TwistStamped`
 on `cartesian_command_topic` (default `/servo_node/delta_twist_cmds`) in `planning_frame`. It
 latches the tool pose on engagement, applies `kp_linear`/`kp_angular`, clamps to the speed
 caps, and stops publishing on stale target, disengagement or TF failure.

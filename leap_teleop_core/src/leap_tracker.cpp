@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <leap_teleop_msgs/msg/hand.hpp>
 #include <leap_teleop_msgs/msg/hand_array.hpp>
-#include <leap_teleop_msgs/msg/hand_target.hpp>
+#include <leap_teleop_msgs/msg/hand_pose.hpp>
 #include <memory>
 #include <mutex>
 #include <rclcpp/rclcpp.hpp>
@@ -54,7 +54,7 @@ namespace {
 
 using leap_teleop_msgs::msg::Hand;
 using leap_teleop_msgs::msg::HandArray;
-using leap_teleop_msgs::msg::HandTarget;
+using leap_teleop_msgs::msg::HandPose;
 
 constexpr std::uint32_t kPollTimeoutMs = 10;
 constexpr auto kIdlePeriod = std::chrono::milliseconds(100);
@@ -78,7 +78,7 @@ class LeapTrackerNode : public rclcpp::Node {
   void set_desktop_mode();
 
   rclcpp::Publisher<HandArray>::SharedPtr hands_pub_;
-  rclcpp::Publisher<HandTarget>::SharedPtr target_pub_;
+  rclcpp::Publisher<HandPose>::SharedPtr target_pub_;
   rclcpp::TimerBase::SharedPtr idle_timer_;
   std::unique_ptr<HandMapper> mapper_;
   std::unique_ptr<LeapConnection> connection_;
@@ -133,9 +133,9 @@ LeapTrackerNode::LeapTrackerNode(const rclcpp::NodeOptions& options)
   target_side_ = (side == "left") ? Hand::LEFT : Hand::RIGHT;
 
   hands_pub_ = create_publisher<HandArray>(
-      "leap/hands", rclcpp::QoS(rclcpp::KeepLast(5)).best_effort().durability_volatile());
-  target_pub_ = create_publisher<HandTarget>(
-      "hand_target", rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
+      "hands", rclcpp::QoS(rclcpp::KeepLast(5)).best_effort().durability_volatile());
+  target_pub_ = create_publisher<HandPose>(
+      "hand_pose", rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
 
   idle_timer_ = create_wall_timer(kIdlePeriod, [this]() { publish_idle(); });
 
@@ -286,7 +286,7 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
   }
 
   HandPoseInput input;
-  HandTarget target;
+  HandPose target;
   if (selected_found) {
     input.position_m = selected_position;
     input.orientation = selected_orientation;
