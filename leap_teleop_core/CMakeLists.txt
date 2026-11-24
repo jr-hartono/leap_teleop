@@ -29,6 +29,14 @@ ament_auto_add_executable(leap_teleop_supervisor
 )
 target_link_libraries(leap_teleop_supervisor leap_hand_mapping)
 
+find_package(LeapSDK QUIET)
+if(LeapSDK_FOUND)
+  ament_auto_add_executable(leap_tracker src/leap_tracker.cpp)
+  target_link_libraries(leap_tracker leap_hand_mapping LeapSDK::LeapC)
+else()
+  message(STATUS "LeapSDK not found; skipping leap_tracker target")
+endif()
+
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 
@@ -50,7 +58,6 @@ if(BUILD_TESTING)
   ament_add_gtest(test_parameters test/test_parameters.cpp)
   target_link_libraries(test_parameters leap_hand_mapping)
   ament_target_dependencies(test_parameters rclcpp)
-
 endif()
 
 ament_auto_package(USE_SCOPED_HEADER_INSTALL_DIR)
