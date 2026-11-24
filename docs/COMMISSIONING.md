@@ -29,6 +29,15 @@ ros2 launch leap_teleop_bringup teleop.launch.py params_file:=/path/to/commissio
 Use the params file to lower `max_linear_speed`; `dry_run` is not a config parameter. Confirm
 the bridge log reports `dry_run is enabled; no commands will be published`.
 
+Servo 2.12.4 also needs the command type selected after each start. The YAML setting
+`command_in_type: speed_units` is not enough:
+
+```sh
+ros2 service call /servo_node/switch_command_type moveit_msgs/srv/ServoCommandType "{command_type: 1}"
+```
+
+Use `1` for `TWIST`, the type published by this bridge. Expect `success: true`.
+
 ## Step 2 — topic names
 
 Confirm these topics exist under the `leap_teleop` namespace (default `/leap_teleop/...`;
