@@ -59,6 +59,8 @@ using leap_teleop_msgs::msg::HandPose;
 constexpr std::uint32_t kPollTimeoutMs = 10;
 constexpr auto kIdlePeriod = std::chrono::milliseconds(100);
 constexpr auto kFrameTimeout = std::chrono::milliseconds(250);
+constexpr auto kDeviceWarnDelay = std::chrono::seconds(2);
+constexpr auto kDeviceErrorDelay = std::chrono::seconds(10);
 constexpr char kDeviceFrame[] = "leap_device_frame";
 constexpr char kHandFrame[] = "leap_teleop_frame";
 
@@ -90,7 +92,11 @@ class LeapTrackerNode : public rclcpp::Node {
   std::uint32_t sequence_ = 0;
 
   std::mutex state_mutex_;
+  const std::chrono::steady_clock::time_point start_time_ =
+      std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point last_frame_time_{};
+  bool missing_device_warned_ = false;
+  bool missing_device_reported_ = false;
 };
 
 LeapTrackerNode::LeapTrackerNode(const rclcpp::NodeOptions& options)
@@ -191,7 +197,6 @@ void LeapTrackerNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
   switch (message.type) {
     case eLeapEventType_Connection:
       RCLCPP_INFO(this->get_logger(), "tracking service connected");
-      device_available_.store(true);
       set_desktop_mode();
       break;
 
@@ -243,6 +248,7 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
     return;
   }
 
+  device_available_.store(true);
   const auto stamp = now();
   HandArray array;
   array.header.stamp = stamp;
@@ -309,12 +315,29 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
       target_pub_->publish(target);
     }
     last_frame_time_ = std::chrono::steady_clock::now();
+    missing_device_warned_ = false;
+    missing_device_reported_ = false;
   }
 }
 
 void LeapTrackerNode::publish_idle() {
   std::lock_guard<std::mutex> lock(state_mutex_);
   const auto now_steady = std::chrono::steady_clock::now();
+  const auto without_device = now_steady - start_time_;
+  if (!device_available_.load() && without_device >= kDeviceWarnDelay &&
+      !missing_device_warned_) {
+    RCLCPP_WARN(get_logger(),
+                "no Leap device detected for %.1f s; check the USB connection and leapd service",
+                std::chrono::duration<double>(without_device).count());
+    missing_device_warned_ = true;
+  }
+  if (!device_available_.load() && without_device >= kDeviceErrorDelay &&
+      !missing_device_reported_) {
+    RCLCPP_ERROR(get_logger(),
+                 "no Leap device detected for %.1f s; tracking stays unavailable",
+                 std::chrono::duration<double>(without_device).count());
+    missing_device_reported_ = true;
+  }
   if (device_available_.load() && now_steady - last_frame_time_ < kFrameTimeout) {
     return;
   }

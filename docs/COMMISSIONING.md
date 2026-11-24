@@ -52,7 +52,8 @@ ros2 topic echo /leap_teleop/state
 
 With no hand but a live device, `is_tracking` remains true and `hands` is empty; the state
 reports `no_hand`, `hand_present=false`, `engaged=false`. After device loss, `is_tracking`
-becomes false at 10 Hz. With a hand tracked longer than `min_hand_age` (0.2 s),
+becomes false at 10 Hz. With no device at all, the tracker logs a warning after 2 s and an
+error after 10 s. With a hand tracked longer than `min_hand_age` (0.2 s),
 `hand_present=true` and `tracking_ok=true`. Holding the key moves the state to `ENGAGED`;
 releasing it returns to `IDLE`. With the key held and unusable tracking, the state is `HOLD`
 (`engaged=false`); recovery re-latches the hand pose.
