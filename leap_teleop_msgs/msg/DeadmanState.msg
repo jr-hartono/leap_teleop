@@ -1,4 +1,4 @@
-# Deadman key state, published by leap_teleop_engage.
+# Deadman key state, published by leap_teleop_deadman.
 # Each message is valid for supervisor.engage_timeout.
 
 # Time of the key state read, on the ROS clock.

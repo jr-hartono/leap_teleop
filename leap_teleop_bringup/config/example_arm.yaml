@@ -10,7 +10,7 @@
 #
 # Cross-node requirements are documented here but enforced by no single node:
 #   supervisor.heartbeat_rate  >  1 / bridge.command_timeout
-#   supervisor.engage_timeout  >= 3 / engage.publish_rate
+#   supervisor.engage_timeout  >= 3 / deadman.publish_rate
 #   bridge.command_timeout     <= Servo's incoming_command_timeout (default 0.1 s)
 #   tracker.yaw must match the orientation of supervisor.base_frame
 
@@ -68,7 +68,7 @@ leap_tracker:
     # Range: [0, 1].
     filter_beta: 0.05
 
-leap_teleop_engage:
+leap_teleop_deadman:
   ros__parameters:
     # Key held to authorise motion, by evdev key name.
     # Choices: space, leftctrl, rightctrl, leftshift, rightshift, leftalt,
@@ -126,7 +126,7 @@ leap_teleop_supervisor:
     heartbeat_rate: 20.0
 
     # Validity of a single DeadmanState message. Must be at least three periods
-    # of engage.publish_rate, so normal jitter does not look like a release.
+    # of deadman.publish_rate, so normal jitter does not look like a release.
     # Range: (0, 1].
     engage_timeout: 0.15
 

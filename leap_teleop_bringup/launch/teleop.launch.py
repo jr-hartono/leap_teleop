@@ -26,8 +26,8 @@ def launch_setup(context, *args):
         ),
         Node(
             package='leap_teleop_core',
-            executable='leap_teleop_engage',
-            name='leap_teleop_engage',
+            executable='leap_teleop_deadman',
+            name='leap_teleop_deadman',
             namespace=leap_namespace,
             parameters=parameters,
         ),

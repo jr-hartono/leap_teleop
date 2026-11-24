@@ -82,7 +82,7 @@ Goal: the gate. Nothing moves without it.
 
 | ID | Ticket | Acceptance |
 |---|---|---|
-| T13 | `leap_teleop_engage`: `evdev` reader, device selected by `/dev/input/by-id` or by scanning keyboards, keydown and keyup, `publish_rate` output, clean handling of device disappearance. | Key release is detected within one publish period; unplugging the keyboard publishes `engaged: false`, not silence; the chosen device and the rejected candidates are logged. |
+| T13 | `leap_teleop_deadman`: `evdev` reader, device selected by `/dev/input/by-id` or by scanning keyboards, keydown and keyup, `publish_rate` output, clean handling of device disappearance. | Key release is detected within one publish period; unplugging the keyboard publishes `engaged: false`, not silence; the chosen device and the rejected candidates are logged. |
 | T14 | Supervisor FSM as a library: `IDLE`, `ENGAGED`, `HOLD`, with hand presence, hand age, freshness and reject inputs. | Transition table tests, including re-latch on recovery and escalation to `IDLE` when `hold_timeout` expires. |
 | T15 | Supervisor node: latch hand pose on rising edge, build delta, stamp `base_frame`, copy `side` from the hand target, publish `pose_delta` and `state`. | Key up → `IDLE`, no deltas; stale tracking → `HOLD`, `engaged: false`; recovery → `ENGAGED` with a re-latched reference and no jump. |
 | T16 | Parameter declaration and validation for every node: declare ranges, reject out-of-range values, refuse to start with a message naming the parameter and its range. | Boundary values accepted; out-of-range rejected; one GTest per parameter group. |

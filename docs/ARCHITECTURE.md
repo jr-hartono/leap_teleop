@@ -57,7 +57,7 @@ library (`leap_hand_mapping`) so it remains independently testable.
 | Package | Nodes | Notes |
 |---|---|---|
 | `leap_teleop_msgs` | — | `ament_cmake`, `rosidl_default_generators` |
-| `leap_teleop_core` | `leap_tracker`, `leap_teleop_engage`, `leap_teleop_supervisor` | C++17; mapper and FSM as libraries |
+| `leap_teleop_core` | `leap_tracker`, `leap_teleop_deadman`, `leap_teleop_supervisor` | C++17; mapper and FSM as libraries |
 | `leap_teleop_bridge` | `leap_moveit_servo_bridge` | publishes a Servo topic; no build dependency on `moveit_servo`; further bridges later |
 | `leap_teleop_bringup` | — | launch files and example config |
 
@@ -74,7 +74,7 @@ default is `/leap_teleop/...` and `namespace:=/ur5` gives `/ur5/leap_teleop/...`
 |---|---|---|---|
 | `hands` | `leap_teleop_msgs/HandArray` | `leap_tracker` | RViz, diagnostics |
 | `hand_pose` | `leap_teleop_msgs/HandPose` | `leap_tracker` | supervisor |
-| `deadman` | `leap_teleop_msgs/DeadmanState` | `leap_teleop_engage` | supervisor |
+| `deadman` | `leap_teleop_msgs/DeadmanState` | `leap_teleop_deadman` | supervisor |
 | `pose_delta` | `leap_teleop_msgs/TeleopDelta` | supervisor | bridges |
 | `state` | `leap_teleop_msgs/TeleopState` | supervisor | diagnostics |
 
@@ -248,7 +248,7 @@ tool origin keeps pure rotations in place.
 Engagement is a **deadman**: the operator holds a key, and motion is authorised only while
 the key is held, the hand is present, and tracking is fresh.
 
-- `leap_teleop_engage` reads the key through `evdev` and publishes `DeadmanState` at 20 Hz.
+- `leap_teleop_deadman` reads the key through `evdev` and publishes `DeadmanState` at 20 Hz.
   The supervisor treats the last message as valid for `engage_timeout`.
 - The keyboard is selected by `/dev/input/by-id/...` when configured, otherwise the first
   keyboard found is used and logged together with the other candidates.
@@ -363,7 +363,7 @@ Relations between nodes are documented, not enforced at runtime by a single node
 | Relation | Why |
 |---|---|
 | `supervisor.heartbeat_rate > 1 / bridge.command_timeout` | the stream must stay fresh between hand frames |
-| `supervisor.engage_timeout >= 3 / engage.publish_rate` | jitter must not look like a key release |
+| `supervisor.engage_timeout >= 3 / deadman.publish_rate` | jitter must not look like a key release |
 | `bridge.command_timeout <= Servo's incoming_command_timeout` | the bridge must not outlive Servo's patience |
 | `tracker.yaw` matches the orientation of `supervisor.base_frame` | the operator frame is defined relative to it |
 
@@ -373,7 +373,7 @@ The topic contract lets each stage run in a different container.
 
 Recommended split when the robot stack is containerised:
 
-- **Host**: `leapd`, `leap_tracker`, `leap_teleop_engage` (needs the USB device and the
+- **Host**: `leapd`, `leap_tracker`, `leap_teleop_deadman` (needs the USB device and the
   keyboard).
 - **Robot container**: `leap_teleop_supervisor`, `leap_moveit_servo_bridge`, MoveIt Servo
   and the robot drivers.

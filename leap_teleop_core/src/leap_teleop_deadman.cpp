@@ -13,9 +13,9 @@
 
 namespace leap_teleop {
 
-class EngageNode : public rclcpp::Node {
+class DeadmanNode : public rclcpp::Node {
  public:
-  EngageNode() : rclcpp::Node("leap_teleop_engage") {
+  DeadmanNode() : rclcpp::Node("leap_teleop_deadman") {
     const std::string key_name = declare_parameter<std::string>("key", "space");
     const int key_code = key_code_from_name(key_name);
     const std::string configured_device = declare_parameter<std::string>("device", "");
@@ -25,7 +25,7 @@ class EngageNode : public rclcpp::Node {
     std::string selected;
     if (!configured_device.empty()) {
       if (access(configured_device.c_str(), R_OK) != 0) {
-        throw std::runtime_error("configured engage device '" + configured_device +
+        throw std::runtime_error("configured deadman device '" + configured_device +
                                  "' is not readable");
       }
       selected = configured_device;
@@ -81,9 +81,9 @@ class EngageNode : public rclcpp::Node {
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
   try {
-    rclcpp::spin(std::make_shared<leap_teleop::EngageNode>());
+    rclcpp::spin(std::make_shared<leap_teleop::DeadmanNode>());
   } catch (const std::exception& error) {
-    RCLCPP_ERROR(rclcpp::get_logger("leap_teleop_engage"), "%s", error.what());
+    RCLCPP_ERROR(rclcpp::get_logger("leap_teleop_deadman"), "%s", error.what());
     rclcpp::shutdown();
     return 1;
   }

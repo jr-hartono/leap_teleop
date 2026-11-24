@@ -41,7 +41,7 @@ streaming, and bridges other than MoveIt Servo.
 | Package | Contents |
 |---|---|
 | `leap_teleop_msgs` | Messages: hands, hand targets, teleop targets, state, engagement |
-| `leap_teleop_core` | `leap_tracker`, `leap_teleop_supervisor`, `leap_teleop_engage`; `leap_hand_mapping` library |
+| `leap_teleop_core` | `leap_tracker`, `leap_teleop_supervisor`, `leap_teleop_deadman`; `leap_hand_mapping` library |
 | `leap_teleop_bridge` | `leap_moveit_servo_bridge` (further bridges later) |
 | `leap_teleop_bringup` | Launch files and the example configuration |
 

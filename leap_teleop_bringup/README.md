@@ -18,7 +18,7 @@ Arguments: `namespace` (default `/`; the stack adds `/leap_teleop`), `params_fil
 ros2 launch leap_teleop_bringup teleop.launch.py params_file:=/path/to/robot.yaml
 ```
 
-The launch starts `leap_tracker`, `leap_teleop_engage`, `leap_teleop_supervisor` and
+The launch starts `leap_tracker`, `leap_teleop_deadman`, `leap_teleop_supervisor` and
 `leap_moveit_servo_bridge`. `dry_run` defaults to `true`.
 
 ## Details

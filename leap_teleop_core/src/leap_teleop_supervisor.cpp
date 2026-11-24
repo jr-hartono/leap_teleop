@@ -58,10 +58,10 @@ class SupervisorNode : public rclcpp::Node {
         [this](const leap_teleop_msgs::msg::HandPose::SharedPtr message) {
           on_hand_pose(*message);
         });
-    engage_subscription_ = create_subscription<leap_teleop_msgs::msg::DeadmanState>(
+    deadman_subscription_ = create_subscription<leap_teleop_msgs::msg::DeadmanState>(
         "deadman", rclcpp::QoS(rclcpp::KeepLast(1)),
         [this](const leap_teleop_msgs::msg::DeadmanState::SharedPtr message) {
-          latest_engage_ = *message;
+          latest_deadman_ = *message;
         });
 
     target_publisher_ = create_publisher<leap_teleop_msgs::msg::TeleopDelta>(
@@ -118,8 +118,8 @@ class SupervisorNode : public rclcpp::Node {
     }
 
     bool key_held = false;
-    if (latest_engage_ && latest_engage_->engaged) {
-      key_held = (time - stamp_seconds(latest_engage_->stamp)) <= engage_timeout_;
+    if (latest_deadman_ && latest_deadman_->engaged) {
+      key_held = (time - stamp_seconds(latest_deadman_->stamp)) <= engage_timeout_;
     }
 
     FsmInputs inputs;
@@ -179,12 +179,12 @@ class SupervisorNode : public rclcpp::Node {
   std::uint32_t sequence_ = 0;
 
   std::optional<leap_teleop_msgs::msg::HandPose> latest_hand_;
-  std::optional<leap_teleop_msgs::msg::DeadmanState> latest_engage_;
+  std::optional<leap_teleop_msgs::msg::DeadmanState> latest_deadman_;
   std::unique_ptr<DeltaBuilder> delta_builder_;
   std::unique_ptr<SupervisorFsm> fsm_;
 
   rclcpp::Subscription<leap_teleop_msgs::msg::HandPose>::SharedPtr hand_subscription_;
-  rclcpp::Subscription<leap_teleop_msgs::msg::DeadmanState>::SharedPtr engage_subscription_;
+  rclcpp::Subscription<leap_teleop_msgs::msg::DeadmanState>::SharedPtr deadman_subscription_;
   rclcpp::Publisher<leap_teleop_msgs::msg::TeleopDelta>::SharedPtr target_publisher_;
   rclcpp::Publisher<leap_teleop_msgs::msg::TeleopState>::SharedPtr state_publisher_;
   rclcpp::TimerBase::SharedPtr heartbeat_;
