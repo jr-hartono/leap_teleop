@@ -1,0 +1,45 @@
+name: build-and-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  colcon:
+    runs-on: ubuntu-latest
+    container: ros:jazzy
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      # Hardware is deliberately absent from CI: the tracker target is built only
+      # when find_package(LeapSDK QUIET) succeeds, and the bridge only publishes a
+      # topic with no link dependency on moveit_servo. LeapSDK, MoveIt Servo and the
+      # Ultraleap service are not installed here.
+      - name: Install ROS dependencies
+        run: |
+          set -e
+          sudo rosdep update
+          sudo rosdep install --from-paths . --ignore-src --rosdistro jazzy -y
+
+      - name: Build
+        run: |
+          set -e
+          source /opt/ros/jazzy/setup.bash
+          colcon build --symlink-install
+
+      - name: Test
+        run: |
+          set -e
+          source /opt/ros/jazzy/setup.bash
+          colcon test
+
+      - name: Test results
+        run: |
+          set -e
+          source /opt/ros/jazzy/setup.bash
+          colcon test-result --verbose
