@@ -174,7 +174,3 @@ leap_moveit_servo_bridge:
     # Range: (0, 0.1].
     publish_period: 0.01
 
-    # Compute and log commands without publishing. Keep enabled until the
-    # pipeline has been verified with the arm powered.
-    # Values: true, false.
-    dry_run: true

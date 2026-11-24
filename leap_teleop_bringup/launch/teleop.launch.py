@@ -13,8 +13,10 @@ def launch_setup(context, *args):
         leap_namespace = namespace.rstrip('/') + '/leap_teleop'
     params_file = LaunchConfiguration('params_file').perform(context)
     use_sim_time = LaunchConfiguration('use_sim_time').perform(context) == 'true'
+    dry_run = LaunchConfiguration('dry_run').perform(context).lower() == 'true'
 
     parameters = [params_file, {'use_sim_time': use_sim_time}]
+    bridge_parameters = parameters + [{'dry_run': dry_run}]
 
     nodes = [
         Node(
@@ -43,7 +45,7 @@ def launch_setup(context, *args):
             executable='leap_moveit_servo_bridge',
             name='leap_moveit_servo_bridge',
             namespace=leap_namespace,
-            parameters=parameters,
+            parameters=bridge_parameters,
         ),
     ]
     return [LaunchDescription(nodes)]
@@ -60,5 +62,7 @@ def generate_launch_description():
                               description='Parameter file with one section per node.'),
         DeclareLaunchArgument('use_sim_time', default_value='false',
                               description='Use simulation time.'),
+        DeclareLaunchArgument('dry_run', default_value='true',
+                              description='Log bridge commands without publishing them.'),
         OpaqueFunction(function=launch_setup),
     ])

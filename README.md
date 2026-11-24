@@ -77,7 +77,7 @@ endif()
 No vendored SDK, no `leapc_cffi` build, no Python version coupling.
 
 Launch the stack with `ros2 launch leap_teleop_bringup teleop.launch.py`. The bridge starts in
-`dry_run` mode; see [docs/COMMISSIONING.md](docs/COMMISSIONING.md) before enabling motion.
+`dry_run:=true` mode; see [docs/COMMISSIONING.md](docs/COMMISSIONING.md) before enabling motion.
 
 ## Documentation
 

@@ -18,9 +18,9 @@ at runtime.
 ## Key parameters
 
 `tool_frame`, `planning_frame`, `cartesian_command_topic`, `kp_linear`, `kp_angular`,
-`max_linear_speed`, `max_angular_speed`, `command_timeout`, `publish_period`, `dry_run`
-(default `true`). Values and ranges:
-[example_arm.yaml](../leap_teleop_bringup/config/example_arm.yaml).
+`max_linear_speed`, `max_angular_speed`, `command_timeout`, `publish_period`. Values and
+ranges: [example_arm.yaml](../leap_teleop_bringup/config/example_arm.yaml). `dry_run` comes
+from the launch argument `dry_run:=...` (default `true`), not from the params file.
 
 ## Details
 

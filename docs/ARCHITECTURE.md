@@ -332,7 +332,8 @@ never copied into `header.stamp`. Stamping at arrival keeps the stack correct un
   `/servo_node/delta_twist_cmds`), transformed into `planning_frame`.
 - Stops publishing when `engaged` is false, the target is older than `command_timeout`,
   or TF fails. Servo's `incoming_command_timeout` then halts the arm.
-- `dry_run: true` computes and logs commands without publishing.
+- The `dry_run` launch argument, default true, makes the bridge compute and log commands
+  without publishing.
 
 Servo 2.12.4 also accepts `geometry_msgs/PoseStamped` on `pose_command_in_topic`; the
 twist path is the default because it is the more commonly exercised interface, and the P
@@ -352,7 +353,8 @@ instead of being configured twice.
 | `mount_mode`, hand→robot yaw, gains, filters, deadband | tracker | — |
 | `base_frame`, `rotation_frame` | supervisor | `TeleopDelta.header.frame_id` (base frame only) |
 | Engage timeouts, `hold_timeout`, `heartbeat_rate` | supervisor | `TeleopState` |
-| `tool_frame`, `planning_frame`, Servo topic, `kp_*`, speed caps, `command_timeout`, `dry_run` | bridge | — |
+| `tool_frame`, `planning_frame`, Servo topic, `kp_*`, speed caps, `command_timeout` | bridge | — |
+| `dry_run` | launch | — |
 | Key, input device, publish rate | engage | `DeadmanState` |
 
 The bridge has no `side` and no `base_frame`. A second arm is a second stack in its own
@@ -395,7 +397,7 @@ the simpler deployment.
   values outside them.
 - No synthetic hand source and no replay bags in v0.1. Correctness rests on pure-function
   tests plus a hardware smoke test.
-- `dry_run` on the bridge allows exercising the pipeline with the device but no arm.
+- The `dry_run` launch argument allows exercising the pipeline with the device but no arm.
 - CI builds and runs the pure tests on Jazzy. The tracker target is built only when
   `LeapSDK` is found (`find_package(LeapSDK QUIET)`), so the core libraries build on
   machines without the Ultraleap service.

@@ -19,7 +19,8 @@ ros2 launch leap_teleop_bringup teleop.launch.py params_file:=/path/to/robot.yam
 ```
 
 The launch starts `leap_tracker`, `leap_teleop_deadman`, `leap_teleop_supervisor` and
-`leap_moveit_servo_bridge`. `dry_run` defaults to `true`.
+`leap_moveit_servo_bridge`. The `dry_run` launch argument defaults to `true`; pass
+`dry_run:=false` to publish commands.
 
 ## Details
 

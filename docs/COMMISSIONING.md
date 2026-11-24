@@ -18,15 +18,16 @@ in [example_arm.yaml](../leap_teleop_bringup/config/example_arm.yaml).
 
 ## Step 1 — dry run
 
-Start with `dry_run: true` and `max_linear_speed: 0.05`. The bridge computes and logs twists
-(`dry_run twist: linear=... angular=...`) without publishing, so the arm does not move.
+Start with the `dry_run:=true` launch argument (the default) and `max_linear_speed: 0.05`.
+The bridge computes and logs twists (`dry_run twist: linear=... angular=...`) without
+publishing, so the arm does not move.
 
 ```sh
 ros2 launch leap_teleop_bringup teleop.launch.py params_file:=/path/to/commissioning.yaml
 ```
 
-Use a params file overriding the two values above. Confirm the bridge log reports
-`dry_run is enabled; no commands will be published`.
+Use the params file to lower `max_linear_speed`; `dry_run` is not a config parameter. Confirm
+the bridge log reports `dry_run is enabled; no commands will be published`.
 
 ## Step 2 — topic names
 
@@ -61,8 +62,8 @@ releasing it returns to `IDLE`. With the key held and unusable tracking, the sta
 ## Step 4 — deadman stop
 
 In dry run, hold the key, move the hand, then release the key. Confirm from the bridge log
-that twists stop being logged. Only after that check passes, set `dry_run: false` and
-repeat: releasing the key must stop publication, the bridge logs
+that twists stop being logged. Only after that check passes, relaunch with `dry_run:=false`
+and repeat: releasing the key must stop publication, the bridge logs
 `not publishing: not_engaged`, and Servo halts the arm. Nothing is commanded to zero.
 
 ## Step 5 — timeout relation

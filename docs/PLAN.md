@@ -97,7 +97,7 @@ Goal: motion on the real arm, bridge dry-run first.
 |---|---|---|
 | T17 | `leap_moveit_servo_bridge` skeleton: subscribe to `pose_delta`, read the frame from the message, latch the tool pose on the rising edge of `engaged`, `target = latched + delta`, `twist = Kp · error`, clamp to speed caps, publish `TwistStamped` in `planning_frame`. `dry_run` default true. | In dry run, commands are logged and nothing is published; the logged twist matches the delta for a known target. |
 | T18 | Failure handling: stale target, `engaged: false`, TF failure, missing Servo node → stop publishing, log a reason once, never publish a stale command. | Killing the supervisor stops bridge output; a missing frame at startup produces a clear error and no publishing. |
-| T19 | `leap_teleop_bringup`: launch file composing tracker, engage, supervisor and bridge; `namespace` and `params_file` arguments; the example config as default. | One launch command with a robot argument starts the pipeline; `dry_run` is the default; an external params file overrides single values. |
+| T19 | `leap_teleop_bringup`: launch file composing tracker, deadman, supervisor and bridge; `namespace`, `params_file` and `dry_run` arguments; the example config as default. | One launch command with a robot argument starts the pipeline; `dry_run` defaults to true; an external params file overrides single values. |
 | T20 | Real-arm commissioning: Servo configured with conservative velocity and acceleration limits, the arm's working area documented, operator briefed on the deadman. | Documented checklist in `docs/COMMISSIONING.md`, signed off by the operator. |
 
 Phase 4 ends with the definition of done above.

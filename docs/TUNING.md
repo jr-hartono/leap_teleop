@@ -1,7 +1,7 @@
 # Tuning
 
-Tuning changes the feel of teleoperation. Perform all tuning with `dry_run: true` in the
-bridge first: commands are logged, not published, so no arm moves. Enable output only after
+Tuning changes the feel of teleoperation. Perform all tuning with `dry_run:=true` on the
+launch first: commands are logged, not published, so no arm moves. Enable output only after
 the logged twists are correct. Parameters and ranges are in
 [example_arm.yaml](../leap_teleop_bringup/config/example_arm.yaml).
 
