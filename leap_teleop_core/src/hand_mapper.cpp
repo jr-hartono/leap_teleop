@@ -19,9 +19,9 @@ geometry_msgs::msg::Pose HandMapper::update(const HandPoseInput& input) {
   filtered.z() = filter_z_.filter(in_base.z(), input.time_sec);
 
   const Eigen::Vector3d with_deadband = translation_deadband_.filter(filtered, input.time_sec);
-  const Eigen::Vector3d output_position = config_.translation_gain * with_deadband;
+  const Eigen::Vector3d output_position = config_.translation_scale * with_deadband;
 
-  const Eigen::Quaterniond scaled = quaternion_power(input.orientation, config_.rotation_gain);
+  const Eigen::Quaterniond scaled = quaternion_power(input.orientation, config_.rotation_scale);
   const Eigen::Quaterniond in_base_orientation = leap_orientation_to_base(scaled, config_.yaw_deg);
   const Eigen::Quaterniond filtered_orientation =
       orientation_filter_.filter(in_base_orientation, input.time_sec);

@@ -56,7 +56,7 @@ TEST(HandMapper, YawRotatesTheTranslationMapping) {
 
 TEST(HandMapper, TranslationGainScalesTheHandMotion) {
   HandMapperConfig config = fast_config();
-  config.translation_gain = 0.5;
+  config.translation_scale = 0.5;
   HandMapper mapper(config);
   HandPoseInput input;
   input.position_m = Eigen::Vector3d(0.0, 0.0, -0.2);
@@ -68,7 +68,7 @@ TEST(HandMapper, TranslationGainScalesTheHandMotion) {
 TEST(HandMapper, RotationGainScalesTheWristMotion) {
   for (const double gain : {1.0, 2.0, 0.5}) {
     HandMapperConfig config = fast_config();
-    config.rotation_gain = gain;
+    config.rotation_scale = gain;
     HandMapper mapper(config);
     HandPoseInput input;
     input.orientation = axis_angle(0.0, 0.0, 1.0, degrees_to_radians(30.0));

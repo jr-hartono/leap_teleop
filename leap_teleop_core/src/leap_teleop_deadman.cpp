@@ -1,6 +1,7 @@
 #include <unistd.h>
 
 #include <chrono>
+#include <leap_teleop_core/leap_teleop_deadman_parameters.hpp>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <stdexcept>
@@ -8,7 +9,6 @@
 #include <vector>
 
 #include "leap_teleop_core/keyboard_deadman.hpp"
-#include "leap_teleop_core/parameters.hpp"
 #include "leap_teleop_msgs/msg/deadman_state.hpp"
 
 namespace leap_teleop {
@@ -16,10 +16,11 @@ namespace leap_teleop {
 class DeadmanNode : public rclcpp::Node {
  public:
   DeadmanNode() : rclcpp::Node("leap_teleop_deadman") {
-    const std::string key_name = declare_parameter<std::string>("key", "space");
-    const int key_code = key_code_from_name(key_name);
-    const std::string configured_device = declare_parameter<std::string>("device", "");
-    publish_rate_ = declare_bounded_double(this, "publish_rate", 20.0, 5.0, 100.0);
+    auto param_listener = std::make_shared<leap_teleop_deadman::ParamListener>(this);
+    const auto params = param_listener->get_params();
+    const int key_code = key_code_from_name(params.key);
+    const std::string configured_device = params.device;
+    publish_rate_ = params.publish_rate;
 
     const std::vector<std::string> candidates = discover_keyboards();
     std::string selected;
@@ -42,7 +43,7 @@ class DeadmanNode : public rclcpp::Node {
       }
     }
     RCLCPP_INFO(get_logger(), "using keyboard %s, key %s (code %d)", selected.c_str(),
-                key_name.c_str(), key_code);
+                params.key.c_str(), key_code);
 
     deadman_ = std::make_unique<KeyboardDeadman>(selected, key_code);
     deadman_->open_device();

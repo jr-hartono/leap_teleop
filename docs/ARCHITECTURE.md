@@ -13,7 +13,7 @@ In scope for v0.1:
 - Original Leap Motion Controller (v1), Gemini service, desktop mount, device lying flat.
 - One 6-DOF arm controlled through MoveIt Servo.
 - Right hand by default, configurable; palm pose only.
-- Engage-relative delta control with fixed gains, filtering, deadband and speed caps.
+- Engage-relative delta control with fixed gains, filtering, deadband and velocity caps.
 - Full 3-DOF rotation, base-frame, about the tool origin.
 - Keyboard deadman plus hand presence.
 
@@ -305,7 +305,7 @@ populate them is either outside this component's control or fails safe without a
 
 ### Limits
 
-- Speed caps are mandatory and live in the bridge: `max_linear_speed`, `max_angular_speed`
+- Velocity caps are mandatory and live in the bridge: `max_linear_velocity`, `max_angular_velocity`
   clamp the twist produced by the P controller.
 - The deadband and filter live in the mapper, before the delta.
 - Servo's `incoming_command_timeout` (0.1 s by default) stops the arm when commands stop.
@@ -337,7 +337,7 @@ never copied into `header.stamp`. Stamping at arrival keeps the stack correct un
 - On the rising edge of `engaged`, latches the tool pose with TF from that frame to
   `tool_frame`.
 - Each tick: `target = latched_pose + delta`, then `twist = Kp · pose_error`, clamped to
-  the speed caps.
+  the velocity caps.
 - Publishes `geometry_msgs/TwistStamped` on `cartesian_command_topic` (default
   `/servo_node/delta_twist_cmds`), transformed into `planning_frame`.
 - Stops publishing when `engaged` is false, the target is older than `command_timeout`,
@@ -363,7 +363,7 @@ instead of being configured twice.
 | `mount_mode`, hand→robot yaw, gains, filters, deadband | tracker | — |
 | `base_frame`, `rotation_frame` | supervisor | `TeleopDelta.header.frame_id` (base frame only) |
 | Engage timeouts, `hold_timeout`, `heartbeat_rate` | supervisor | `TeleopState` |
-| `tool_frame`, `planning_frame`, Servo topic, `kp_*`, speed caps, `command_timeout` | bridge | — |
+| `tool_frame`, `planning_frame`, Servo topic, `kp_*`, velocity caps, `command_timeout` | bridge | — |
 | `dry_run` | launch | — |
 | Key, input device, publish rate | engage | `DeadmanState` |
 

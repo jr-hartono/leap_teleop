@@ -28,7 +28,7 @@ same type.
 - One Leap Motion Controller (v1), desktop mount, lying flat.
 - One 6-DOF arm controlled through MoveIt Servo.
 - Right hand by default, palm pose only. No finger or gripper control yet.
-- Engage-relative delta control with fixed gains, filtering, deadband and speed caps.
+- Engage-relative delta control with fixed gains, filtering, deadband and velocity caps.
 - Full 3-DOF rotation, applied in the base frame about the tool origin.
 - Keyboard deadman (`evdev`) plus hand presence.
 

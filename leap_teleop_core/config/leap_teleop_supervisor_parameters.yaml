@@ -1,0 +1,49 @@
+# Parameter definition for leap_teleop_supervisor.
+# Types, defaults and constraints here are enforced by the generated ParamListener.
+# The human-facing values and units live in leap_teleop_bringup/config/example_arm.yaml.
+
+leap_teleop_supervisor:
+  base_frame:
+    type: string
+    default_value: base_link
+    description: "Frame of TeleopDelta; bridges latch the tool pose in this frame."
+    validation:
+      not_empty<>: []
+  rotation_frame:
+    type: string
+    default_value: world
+    description: "Composition order for the hand rotation delta."
+    validation:
+      one_of<>: [["world", "tool"]]
+  tracking_timeout:
+    type: double
+    default_value: 0.15
+    description: "Maximum age of a hand pose in seconds."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [1.0]
+  min_hand_age:
+    type: double
+    default_value: 0.2
+    description: "Continuous tracking required before latch, in seconds."
+    validation:
+      bounds<>: [0.0, 5.0]
+  hold_timeout:
+    type: double
+    default_value: 2.0
+    description: "Time in HOLD before falling back to IDLE, in seconds; 0 disables."
+    validation:
+      bounds<>: [0.0, 60.0]
+  heartbeat_rate:
+    type: double
+    default_value: 20.0
+    description: "Minimum TeleopDelta publication rate in Hz."
+    validation:
+      bounds<>: [5.0, 100.0]
+  engage_timeout:
+    type: double
+    default_value: 0.15
+    description: "Validity of a single DeadmanState message, in seconds."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [1.0]

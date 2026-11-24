@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <leap_teleop_core/leap_tracker_parameters.hpp>
 #include <leap_teleop_msgs/msg/hand.hpp>
 #include <leap_teleop_msgs/msg/hand_array.hpp>
 #include <leap_teleop_msgs/msg/hand_pose.hpp>
@@ -17,7 +18,6 @@
 
 #include "leap_teleop_core/frames.hpp"
 #include "leap_teleop_core/hand_mapper.hpp"
-#include "leap_teleop_core/parameters.hpp"
 
 namespace leap_teleop {
 
@@ -101,42 +101,26 @@ class LeapTrackerNode : public rclcpp::Node {
 
 LeapTrackerNode::LeapTrackerNode(const rclcpp::NodeOptions& options)
     : rclcpp::Node("leap_tracker", options) {
-  const std::string mount_mode =
-      declare_choice(this, "mount_mode", "desktop", {"desktop", "head_mounted"});
-  if (mount_mode != "desktop") {
-    throw std::invalid_argument("parameter 'mount_mode': '" + mount_mode +
-                                "' is not supported; only 'desktop' is implemented; 'head_mounted' "
-                                "requires head pose composition");
+  auto param_listener = std::make_shared<leap_tracker::ParamListener>(this);
+  const auto params = param_listener->get_params();
+  if (params.mount_mode != "desktop") {
+    throw std::invalid_argument(
+        "parameter 'mount_mode': only 'desktop' is implemented; "
+        "'head_mounted' requires head pose composition");
   }
 
-  const std::string side = declare_choice(this, "side", "right", {"right", "left"});
-  const double yaw = declare_bounded_double(this, "yaw", 0.0, -180.0, 180.0);
-  const double translation_gain =
-      declare_bounded_double(this, "translation_gain", 1.0, 0.0, 10.0, false, true);
-  const double rotation_gain =
-      declare_bounded_double(this, "rotation_gain", 1.0, 0.0, 10.0, false, true);
-  const double deadband_translation =
-      declare_bounded_double(this, "deadband_translation", 0.002, 0.0, 0.05);
-  const double deadband_rotation_deg =
-      declare_bounded_double(this, "deadband_rotation", 0.5, 0.0, 5.0);
-  const double deadband_hysteresis =
-      declare_bounded_double(this, "deadband_hysteresis", 1.5, 1.0, 4.0);
-  const double filter_min_cutoff =
-      declare_bounded_double(this, "filter_min_cutoff", 1.0, 0.0, 100.0, false, true);
-  const double filter_beta = declare_bounded_double(this, "filter_beta", 0.05, 0.0, 1.0);
-
   HandMapperConfig config;
-  config.yaw_deg = yaw;
-  config.translation_gain = translation_gain;
-  config.rotation_gain = rotation_gain;
-  config.deadband_translation_m = deadband_translation;
-  config.deadband_rotation_rad = degrees_to_radians(deadband_rotation_deg);
-  config.deadband_hysteresis = deadband_hysteresis;
-  config.filter_min_cutoff_hz = filter_min_cutoff;
-  config.filter_beta = filter_beta;
+  config.yaw_deg = params.yaw;
+  config.translation_scale = params.translation_scale;
+  config.rotation_scale = params.rotation_scale;
+  config.deadband_translation_m = params.deadband_translation;
+  config.deadband_rotation_rad = degrees_to_radians(params.deadband_rotation);
+  config.deadband_hysteresis = params.deadband_hysteresis;
+  config.filter_min_cutoff_hz = params.filter_min_cutoff;
+  config.filter_beta = params.filter_beta;
   mapper_ = std::make_unique<HandMapper>(config);
 
-  target_side_ = (side == "left") ? Hand::LEFT : Hand::RIGHT;
+  target_side_ = (params.side == "left") ? Hand::LEFT : Hand::RIGHT;
 
   hands_pub_ = create_publisher<HandArray>(
       "hands", rclcpp::QoS(rclcpp::KeepLast(5)).best_effort().durability_volatile());

@@ -1,0 +1,68 @@
+# Parameter definition for leap_tracker.
+# Types, defaults and constraints here are enforced by the generated ParamListener.
+# The human-facing values and units live in leap_teleop_bringup/config/example_arm.yaml.
+
+leap_tracker:
+  mount_mode:
+    type: string
+    default_value: desktop
+    description: "Device mount; only desktop is implemented."
+    validation:
+      one_of<>: [["desktop", "head_mounted"]]
+  side:
+    type: string
+    default_value: right
+    description: "Hand used for teleoperation."
+    validation:
+      one_of<>: [["right", "left"]]
+  yaw:
+    type: double
+    default_value: 0.0
+    description: "Yaw from device forward axis to robot +x, in degrees."
+    validation:
+      bounds<>: [-180.0, 180.0]
+  translation_scale:
+    type: double
+    default_value: 1.0
+    description: "Hand-to-tool translation scale, unitless."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [10.0]
+  rotation_scale:
+    type: double
+    default_value: 1.0
+    description: "Hand-to-tool rotation scale, unitless."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [10.0]
+  deadband_translation:
+    type: double
+    default_value: 0.002
+    description: "Translation deadband in metres."
+    validation:
+      bounds<>: [0.0, 0.05]
+  deadband_rotation:
+    type: double
+    default_value: 0.5
+    description: "Rotation deadband in degrees."
+    validation:
+      bounds<>: [0.0, 5.0]
+  deadband_hysteresis:
+    type: double
+    default_value: 1.5
+    description: "Multiplier applied to the deadband to leave it."
+    validation:
+      bounds<>: [1.0, 4.0]
+  filter_min_cutoff:
+    type: double
+    default_value: 1.0
+    description: "One-Euro minimum cutoff in Hz."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [100.0]
+  filter_beta:
+    type: double
+    default_value: 0.05
+    description: "One-Euro speed coefficient, unitless."
+    validation:
+      bounds<>: [0.0, 1.0]

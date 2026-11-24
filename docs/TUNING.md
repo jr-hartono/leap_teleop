@@ -7,11 +7,11 @@ the logged twists are correct. Parameters and ranges are in
 
 ## What the knobs mean
 
-- `translation_gain` and `rotation_gain` are unitless ratios. 1.0 is 1:1; 2.0 doubles the
+- `translation_scale` and `rotation_scale` are unitless ratios. 1.0 is 1:1; 2.0 doubles the
   commanded travel for the same hand motion.
 - `kp_linear` and `kp_angular` are proportional gains in 1/s, converting pose error into
   commanded twist. They set response speed; they are not limits.
-- `max_linear_speed` and `max_angular_speed` are hard caps. They bound the published twist
+- `max_linear_velocity` and `max_angular_velocity` are hard caps. They bound the published twist
   whatever the gains request, so they are safety limits, not targets.
 - `filter_min_cutoff` (Hz) and `filter_beta` shape the One-Euro filter on position and the
   low-pass filter on orientation.
@@ -29,10 +29,10 @@ the logged twists are correct. Parameters and ranges are in
 | Chatter at the edge of the deadband | `deadband_hysteresis` | Increase above 1.0 |
 | Sluggish response | `kp_linear`, `kp_angular` | Increase |
 | Over-fast, twitchy response | `kp_linear`, `kp_angular` | Decrease |
-| Motion too violent | `max_linear_speed`, `max_angular_speed` | Decrease |
+| Motion too violent | `max_linear_velocity`, `max_angular_velocity` | Decrease |
 
 Change one parameter at a time; settle gains and caps before filters. Keep
-`max_linear_speed` at 0.05 during initial tuning. See [COMMISSIONING.md](COMMISSIONING.md)
+`max_linear_velocity` at 0.05 during initial tuning. See [COMMISSIONING.md](COMMISSIONING.md)
 for the safe order of steps.
 
 ## Mount alignment

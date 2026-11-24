@@ -10,13 +10,13 @@
 #include <cstdint>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
+#include <leap_teleop_bridge/leap_moveit_servo_bridge_parameters.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <stdexcept>
 #include <string>
 
 #include "leap_teleop_core/delta_builder.hpp"
 #include "leap_teleop_core/frames.hpp"
-#include "leap_teleop_core/parameters.hpp"
 #include "leap_teleop_msgs/msg/teleop_delta.hpp"
 
 namespace leap_teleop {
@@ -49,20 +49,18 @@ Eigen::Vector3d clamp_norm(const Eigen::Vector3d& value, double maximum) {
 class MoveItServoBridge : public rclcpp::Node {
  public:
   MoveItServoBridge() : rclcpp::Node("leap_moveit_servo_bridge") {
-    tool_frame_ = declare_parameter<std::string>("tool_frame", "tool0");
-    planning_frame_ = declare_parameter<std::string>("planning_frame", "base_link");
-    const std::string topic =
-        declare_parameter<std::string>("cartesian_command_topic", "/servo_node/delta_twist_cmds");
-    if (tool_frame_.empty() || planning_frame_.empty() || topic.empty()) {
-      throw std::invalid_argument("frame and topic parameters must not be empty");
-    }
-    kp_linear_ = declare_bounded_double(this, "kp_linear", 4.0, 0.0, 50.0, false);
-    kp_angular_ = declare_bounded_double(this, "kp_angular", 4.0, 0.0, 50.0, false);
-    max_linear_speed_ = declare_bounded_double(this, "max_linear_speed", 0.2, 0.0, 2.0, false);
-    max_angular_speed_ = declare_bounded_double(this, "max_angular_speed", 0.5, 0.0, 3.0, false);
-    command_timeout_ = declare_bounded_double(this, "command_timeout", 0.09, 0.0, 1.0, false);
-    publish_period_ = declare_bounded_double(this, "publish_period", 0.01, 0.0, 0.1, false);
-    dry_run_ = declare_bool(this, "dry_run", true);
+    auto param_listener = std::make_shared<leap_moveit_servo_bridge::ParamListener>(this);
+    const auto params = param_listener->get_params();
+    tool_frame_ = params.tool_frame;
+    planning_frame_ = params.planning_frame;
+    const std::string topic = params.cartesian_command_topic;
+    kp_linear_ = params.kp_linear;
+    kp_angular_ = params.kp_angular;
+    max_linear_velocity_ = params.max_linear_velocity;
+    max_angular_velocity_ = params.max_angular_velocity;
+    command_timeout_ = params.command_timeout;
+    publish_period_ = params.publish_period;
+    dry_run_ = params.dry_run;
 
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -148,9 +146,9 @@ class MoveItServoBridge : public rclcpp::Node {
             quaternion_from_msg(desired.orientation), quaternion_from_msg(current.orientation));
         const Eigen::AngleAxisd angle_axis(orientation_error);
 
-        Eigen::Vector3d linear = clamp_norm(kp_linear_ * position_error, max_linear_speed_);
+        Eigen::Vector3d linear = clamp_norm(kp_linear_ * position_error, max_linear_velocity_);
         Eigen::Vector3d angular =
-            clamp_norm(kp_angular_ * angle_axis.angle() * angle_axis.axis(), max_angular_speed_);
+            clamp_norm(kp_angular_ * angle_axis.angle() * angle_axis.axis(), max_angular_velocity_);
 
         if (planning_frame_ != latched_frame_) {
           const auto rotation =
@@ -198,8 +196,8 @@ class MoveItServoBridge : public rclcpp::Node {
   std::string latched_frame_;
   double kp_linear_ = 4.0;
   double kp_angular_ = 4.0;
-  double max_linear_speed_ = 0.2;
-  double max_angular_speed_ = 0.5;
+  double max_linear_velocity_ = 0.2;
+  double max_angular_velocity_ = 0.5;
   double command_timeout_ = 0.09;
   double publish_period_ = 0.01;
   bool dry_run_ = true;

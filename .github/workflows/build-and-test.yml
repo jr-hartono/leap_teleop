@@ -26,6 +26,24 @@ jobs:
           sudo rosdep update
           sudo rosdep install --from-paths . --ignore-src --rosdistro jazzy -y
 
+      # The config checker is newer than the Jazzy 0.7.7 binary package, so install
+      # just the Python tool in an isolated venv. Pin the commit for reproducible CI.
+      # Unset ROS paths so the venv copy wins over the system-installed generator.
+      - name: Validate parameter configuration
+        run: |
+          set -e
+          python3 -m venv /tmp/gpl-validate
+          /tmp/gpl-validate/bin/pip install --no-deps \
+            "git+https://github.com/ros-tooling/generate_parameter_library.git@3de05171627222370af8e760a3a6c3adc9dde54a#subdirectory=generate_parameter_library_py"
+          env -u PYTHONPATH -u AMENT_PREFIX_PATH \
+            /tmp/gpl-validate/bin/generate_parameter_library_validate \
+            --param-definition leap_teleop_core/config/leap_tracker_parameters.yaml \
+            --param-definition leap_teleop_core/config/leap_teleop_deadman_parameters.yaml \
+            --param-definition leap_teleop_core/config/leap_teleop_supervisor_parameters.yaml \
+            --param-definition leap_teleop_bridge/config/leap_moveit_servo_bridge_parameters.yaml \
+            --config leap_teleop_bringup/config/example_arm.yaml \
+            --strict
+
       - name: Build
         run: |
           set -e

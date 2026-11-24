@@ -18,7 +18,7 @@ in [example_arm.yaml](../leap_teleop_bringup/config/example_arm.yaml).
 
 ## Step 1 — dry run
 
-Start with the `dry_run:=true` launch argument (the default) and `max_linear_speed: 0.05`.
+Start with the `dry_run:=true` launch argument (the default) and `max_linear_velocity: 0.05`.
 The bridge computes and logs twists (`dry_run twist: linear=... angular=...`) without
 publishing, so the arm does not move.
 
@@ -26,7 +26,7 @@ publishing, so the arm does not move.
 ros2 launch leap_teleop_bringup teleop.launch.py params_file:=/path/to/commissioning.yaml
 ```
 
-Use the params file to lower `max_linear_speed`; `dry_run` is not a config parameter. Confirm
+Use the params file to lower `max_linear_velocity`; `dry_run` is not a config parameter. Confirm
 the bridge log reports `dry_run is enabled; no commands will be published`.
 
 Servo 2.12.4 also needs the command type selected after each start. The YAML setting
@@ -97,16 +97,16 @@ Verify `command_timeout <= Servo incoming_command_timeout` (Servo default 0.1 s)
 shipped example sets `command_timeout: 0.09`. If a robot stack overrides it, keep the value
 at or below Servo's timeout: the bridge must not outlive Servo's patience.
 
-## Step 6 — raise speed caps
+## Step 6 — raise velocity caps
 
-Raise speed caps gradually from the commissioning value:
+Raise velocity caps gradually from the commissioning value:
 
 ```sh
-ros2 param set /leap_teleop/leap_moveit_servo_bridge max_linear_speed 0.1
+ros2 param set /leap_teleop/leap_moveit_servo_bridge max_linear_velocity 0.1
 ```
 
 Increase in small steps, checking after each step that motion stays inside the interaction
-area and stops on deadman release. Raise `max_angular_speed` (default 0.5) similarly. Leave
+area and stops on deadman release. Raise `max_angular_velocity` (default 0.5) similarly. Leave
 `kp_linear` and `kp_angular` (both 4.0) unchanged until the caps are trusted; see
 [TUNING.md](TUNING.md).
 
@@ -118,7 +118,7 @@ Record the arm-specific values before the first powered run:
 - Operator position: _<fill in per installation>_.
 
 The hand's usable range is roughly 60–70 cm above the sensor. There is no positional or
-workspace clamp: displacement is bounded by the device's interaction zone, the speed caps,
+workspace clamp: displacement is bounded by the device's interaction zone, the velocity caps,
 Servo joint limits and collision checks, and the deadman. Keep the operator outside the
 arm's swept volume and in view of the device. Keep the device flat and level; `yaw` must
 match the orientation of `base_frame` (0 when robot and operator face the same direction,

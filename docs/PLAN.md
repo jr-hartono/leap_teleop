@@ -10,7 +10,7 @@ An operator, sitting at a desk with a Leap v1 in front of them, holds the spaceb
 a hand, and the arm's end effector follows that motion in the base frame: down means down,
 forward means forward, turning the hand turns the tool. Releasing the spacebar stops the
 arm within one Servo timeout without a jump. The arm never moves when the key is up, the
-hand is absent, tracking is stale, or a speed cap would be exceeded.
+hand is absent, tracking is stale, or a velocity cap would be exceeded.
 
 Nothing else is required for v0.1. Gripper, second hand, head-mounted mode, camera
 images, other robots and other bridges are deliberately absent.
@@ -95,7 +95,7 @@ Goal: motion on the real arm, bridge dry-run first.
 
 | ID | Ticket | Acceptance |
 |---|---|---|
-| T17 | `leap_moveit_servo_bridge` skeleton: subscribe to `pose_delta`, read the frame from the message, latch the tool pose on the rising edge of `engaged`, `target = latched + delta`, `twist = Kp · error`, clamp to speed caps, publish `TwistStamped` in `planning_frame`. `dry_run` default true. | In dry run, commands are logged and nothing is published; the logged twist matches the delta for a known target. |
+| T17 | `leap_moveit_servo_bridge` skeleton: subscribe to `pose_delta`, read the frame from the message, latch the tool pose on the rising edge of `engaged`, `target = latched + delta`, `twist = Kp · error`, clamp to velocity caps, publish `TwistStamped` in `planning_frame`. `dry_run` default true. | In dry run, commands are logged and nothing is published; the logged twist matches the delta for a known target. |
 | T18 | Failure handling: stale target, `engaged: false`, TF failure, missing Servo node → stop publishing, log a reason once, never publish a stale command. | Killing the supervisor stops bridge output; a missing frame at startup produces a clear error and no publishing. |
 | T19 | `leap_teleop_bringup`: launch file composing tracker, deadman, supervisor and bridge; `namespace`, `params_file` and `dry_run` arguments; the example config as default. | One launch command with a robot argument starts the pipeline; `dry_run` defaults to true; an external params file overrides single values. |
 | T20 | Real-arm commissioning: Servo configured with conservative velocity and acceleration limits, the arm's working area documented, operator briefed on the deadman. | Documented checklist in `docs/COMMISSIONING.md`, signed off by the operator. |
@@ -122,7 +122,7 @@ Phase 5 is optional for the first demo and should not block it.
 | Servo planning frame ≠ base frame | Silently wrong motion direction | Explicit TF transform in the bridge, asserted at startup |
 | Latency stack: device → filters → supervisor → Servo → controller | Sluggish or laggy feel | Measure end-to-end in Phase 2 and Phase 4; keep filters minimal, prefer One-Euro over long averages |
 | Supervisor crash while the arm moves | Arm keeps the last command until Servo timeout | Bridge stops on stale target; the operator releases the deadman |
-| No positional clamp, so a hand glitch can ask for a long travel | Rapid motion towards a distant goal | Speed caps bound the violence; the interaction zone bounds the displacement; the deadman stops it; Servo checks collisions |
+| No positional clamp, so a hand glitch can ask for a long travel | Rapid motion towards a distant goal | Velocity caps bound the violence; the interaction zone bounds the displacement; the deadman stops it; Servo checks collisions |
 | Two latches (hand, tool) on the same edge | One-frame disagreement | Delta is zero at engagement, so disagreement cannot produce a jump; verified by test |
 
 ## Settled decisions
@@ -137,4 +137,4 @@ Recorded in [docs/adr/](adr/):
 
 Not ADR-worthy but fixed for v0.1: four packages, three runtime nodes plus the engage
 node, `evdev` only, three states (`IDLE`, `ENGAGED`, `HOLD`), world-frame rotation,
-`desktop` mount only, speed caps only.
+`desktop` mount only, velocity caps only.

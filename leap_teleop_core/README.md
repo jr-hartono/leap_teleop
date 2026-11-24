@@ -16,7 +16,7 @@ Hand tracking, mapping, engagement and supervision, independent of any robot.
 
 ## Key parameters
 
-`yaw`, `translation_gain`, `rotation_gain`, `filter_min_cutoff`, `filter_beta`,
+`yaw`, `translation_scale`, `rotation_scale`, `filter_min_cutoff`, `filter_beta`,
 `deadband_translation`, `deadband_rotation`, `deadband_hysteresis` (tracker); `key`,
 `device`, `publish_rate` (engage); `base_frame`, `rotation_frame`, `tracking_timeout`,
 `min_hand_age`, `hold_timeout`, `heartbeat_rate`, `engage_timeout` (supervisor). Values and

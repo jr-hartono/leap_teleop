@@ -10,6 +10,20 @@ ament_auto_find_build_dependencies()
 find_package(Eigen3 REQUIRED)
 ament_export_dependencies(Eigen3)
 
+find_package(generate_parameter_library REQUIRED)
+generate_parameter_library(leap_tracker_parameters config/leap_tracker_parameters.yaml)
+generate_parameter_library(leap_teleop_deadman_parameters
+  config/leap_teleop_deadman_parameters.yaml)
+generate_parameter_library(leap_teleop_supervisor_parameters
+  config/leap_teleop_supervisor_parameters.yaml)
+
+install(FILES
+  config/leap_tracker_parameters.yaml
+  config/leap_teleop_deadman_parameters.yaml
+  config/leap_teleop_supervisor_parameters.yaml
+  DESTINATION share/${PROJECT_NAME}/parameter_definitions
+)
+
 ament_auto_add_library(leap_hand_mapping SHARED
   src/frames.cpp
   src/filters.cpp
@@ -23,16 +37,17 @@ ament_auto_add_executable(leap_teleop_deadman
   src/leap_teleop_deadman.cpp
   src/keyboard_deadman.cpp
 )
+target_link_libraries(leap_teleop_deadman leap_teleop_deadman_parameters)
 
 ament_auto_add_executable(leap_teleop_supervisor
   src/leap_teleop_supervisor.cpp
 )
-target_link_libraries(leap_teleop_supervisor leap_hand_mapping)
+target_link_libraries(leap_teleop_supervisor leap_hand_mapping leap_teleop_supervisor_parameters)
 
 find_package(LeapSDK QUIET)
 if(LeapSDK_FOUND)
   ament_auto_add_executable(leap_tracker src/leap_tracker.cpp)
-  target_link_libraries(leap_tracker leap_hand_mapping LeapSDK::LeapC)
+  target_link_libraries(leap_tracker leap_hand_mapping leap_tracker_parameters LeapSDK::LeapC)
 else()
   message(STATUS "LeapSDK not found; skipping leap_tracker target")
 endif()
@@ -54,10 +69,6 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_supervisor_fsm test/test_supervisor_fsm.cpp)
   target_link_libraries(test_supervisor_fsm leap_hand_mapping)
-
-  ament_add_gtest(test_parameters test/test_parameters.cpp)
-  target_link_libraries(test_parameters leap_hand_mapping)
-  ament_target_dependencies(test_parameters rclcpp)
 
   ament_add_gtest(test_keyboard_deadman test/test_keyboard_deadman.cpp)
   target_link_libraries(test_keyboard_deadman leap_hand_mapping)

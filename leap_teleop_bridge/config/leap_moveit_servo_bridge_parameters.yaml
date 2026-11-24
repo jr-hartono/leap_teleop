@@ -1,0 +1,69 @@
+# Parameter definition for leap_moveit_servo_bridge.
+# Types, defaults and constraints here are enforced by the generated ParamListener.
+# The human-facing values and units live in leap_teleop_bringup/config/example_arm.yaml.
+
+leap_moveit_servo_bridge:
+  tool_frame:
+    type: string
+    default_value: tool0
+    description: "Frame of the rotation pivot."
+    validation:
+      not_empty<>: []
+  planning_frame:
+    type: string
+    default_value: base_link
+    description: "Frame in which MoveIt Servo expects twists."
+    validation:
+      not_empty<>: []
+  cartesian_command_topic:
+    type: string
+    default_value: "/servo_node/delta_twist_cmds"
+    description: "Servo's cartesian command topic."
+    validation:
+      not_empty<>: []
+  kp_linear:
+    type: double
+    default_value: 4.0
+    description: "Proportional gain from translation error to twist, in 1/s."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [50.0]
+  kp_angular:
+    type: double
+    default_value: 4.0
+    description: "Proportional gain from rotation error to twist, in 1/s."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [50.0]
+  max_linear_velocity:
+    type: double
+    default_value: 0.2
+    description: "Hard cap on commanded linear velocity, in m/s."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [2.0]
+  max_angular_velocity:
+    type: double
+    default_value: 0.5
+    description: "Hard cap on commanded angular velocity, in rad/s."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [3.0]
+  command_timeout:
+    type: double
+    default_value: 0.09
+    description: "Time without a fresh TeleopDelta before publication stops, in seconds."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [1.0]
+  publish_period:
+    type: double
+    default_value: 0.01
+    description: "Control tick period, in seconds."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [0.1]
+  dry_run:
+    type: bool
+    default_value: true
+    description: "Log commands without publishing; set by the launch argument."

@@ -2,6 +2,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <leap_teleop_core/leap_teleop_supervisor_parameters.hpp>
 #include <memory>
 #include <optional>
 #include <rclcpp/rclcpp.hpp>
@@ -10,7 +11,6 @@
 #include <utility>
 
 #include "leap_teleop_core/delta_builder.hpp"
-#include "leap_teleop_core/parameters.hpp"
 #include "leap_teleop_core/supervisor_fsm.hpp"
 #include "leap_teleop_msgs/msg/deadman_state.hpp"
 #include "leap_teleop_msgs/msg/hand_pose.hpp"
@@ -49,21 +49,17 @@ std::string state_token(State state) {
 class SupervisorNode : public rclcpp::Node {
  public:
   SupervisorNode() : rclcpp::Node("leap_teleop_supervisor") {
-    base_frame_ = declare_parameter<std::string>("base_frame", "base_link");
-    if (base_frame_.empty()) {
-      throw std::invalid_argument("parameter 'base_frame' must not be empty");
-    }
-    const std::string rotation_name =
-        declare_choice(this, "rotation_frame", "world", {"world", "tool"});
-    tracking_timeout_ = declare_bounded_double(this, "tracking_timeout", 0.15, 0.0, 1.0, false);
-    min_hand_age_ = declare_bounded_double(this, "min_hand_age", 0.2, 0.0, 5.0);
-    const double hold_timeout = declare_bounded_double(this, "hold_timeout", 2.0, 0.0, 60.0);
-    heartbeat_rate_ = declare_bounded_double(this, "heartbeat_rate", 20.0, 5.0, 100.0);
-    engage_timeout_ = declare_bounded_double(this, "engage_timeout", 0.15, 0.0, 1.0, false);
+    auto param_listener = std::make_shared<leap_teleop_supervisor::ParamListener>(this);
+    const auto params = param_listener->get_params();
+    base_frame_ = params.base_frame;
+    tracking_timeout_ = params.tracking_timeout;
+    min_hand_age_ = params.min_hand_age;
+    heartbeat_rate_ = params.heartbeat_rate;
+    engage_timeout_ = params.engage_timeout;
 
-    frame_ = (rotation_name == "tool") ? RotationFrame::kTool : RotationFrame::kWorld;
+    frame_ = (params.rotation_frame == "tool") ? RotationFrame::kTool : RotationFrame::kWorld;
     delta_builder_ = std::make_unique<DeltaBuilder>(frame_);
-    fsm_ = std::make_unique<SupervisorFsm>(hold_timeout);
+    fsm_ = std::make_unique<SupervisorFsm>(params.hold_timeout);
 
     hand_subscription_ = create_subscription<leap_teleop_msgs::msg::HandPose>(
         "hand_pose", rclcpp::QoS(rclcpp::KeepLast(1)),

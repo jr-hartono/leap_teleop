@@ -28,6 +28,32 @@ colcon test
 colcon test-result --verbose
 ```
 
+## Parameters
+
+Each node has a parameter definition file under its package's `config/` directory. It
+declares every parameter's type, default, description and validation rule. The build
+generates a `ParamListener` from it, so the same rules apply at startup and on dynamic
+updates. Values outside a rule make the node refuse to start.
+
+`leap_teleop_bringup/config/example_arm.yaml` is the human-facing configuration; its comments
+label choices, ranges and units, and every value shown is both the default and an example.
+CI checks that file against all four definitions with
+`generate_parameter_library_validate --strict`. To run the same check locally, install the
+validator from the `generate_parameter_library` Python package and run:
+
+```sh
+generate_parameter_library_validate \
+  --param-definition leap_teleop_core/config/leap_tracker_parameters.yaml \
+  --param-definition leap_teleop_core/config/leap_teleop_deadman_parameters.yaml \
+  --param-definition leap_teleop_core/config/leap_teleop_supervisor_parameters.yaml \
+  --param-definition leap_teleop_bridge/config/leap_moveit_servo_bridge_parameters.yaml \
+  --config leap_teleop_bringup/config/example_arm.yaml \
+  --strict
+```
+
+`dry_run` is launch-only and stays out of the example config; omitting a parameter with a
+default is a warning, not an error.
+
 ## Format
 
 Apply clang-format to package sources and headers:
