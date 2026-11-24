@@ -38,6 +38,18 @@ ros2 service call /servo_node/switch_command_type moveit_msgs/srv/ServoCommandTy
 
 Use `1` for `TWIST`, the type published by this bridge. Expect `success: true`.
 
+The shipped UR Servo config publishes on `/forward_position_controller/commands`, so that
+controller must be active. The UR driver starts `scaled_joint_trajectory_controller` by
+default; switch it out before enabling output:
+
+```sh
+ros2 control switch_controllers --deactivate scaled_joint_trajectory_controller --activate forward_position_controller --strict
+ros2 control list_controllers
+```
+
+Other robots may use a different controller and topic; check `command_out_topic` in that
+robot's Servo config.
+
 ## Step 2 — topic names
 
 Confirm these topics exist under the `leap_teleop` namespace (default `/leap_teleop/...`;
