@@ -15,6 +15,7 @@ ament_auto_add_library(leap_hand_mapping SHARED
   src/filters.cpp
   src/hand_mapper.cpp
   src/delta_builder.cpp
+  src/supervisor_fsm.cpp
 )
 target_link_libraries(leap_hand_mapping Eigen3::Eigen)
 
@@ -22,6 +23,11 @@ ament_auto_add_executable(leap_teleop_engage
   src/leap_teleop_engage.cpp
   src/keyboard_deadman.cpp
 )
+
+ament_auto_add_executable(leap_teleop_supervisor
+  src/leap_teleop_supervisor.cpp
+)
+target_link_libraries(leap_teleop_supervisor leap_hand_mapping)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
@@ -37,6 +43,13 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_delta_builder test/test_delta_builder.cpp)
   target_link_libraries(test_delta_builder leap_hand_mapping)
+
+  ament_add_gtest(test_supervisor_fsm test/test_supervisor_fsm.cpp)
+  target_link_libraries(test_supervisor_fsm leap_hand_mapping)
+
+  ament_add_gtest(test_parameters test/test_parameters.cpp)
+  target_link_libraries(test_parameters leap_hand_mapping)
+  ament_target_dependencies(test_parameters rclcpp)
 
 endif()
 
