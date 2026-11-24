@@ -18,6 +18,11 @@ ament_auto_add_library(leap_hand_mapping SHARED
 )
 target_link_libraries(leap_hand_mapping Eigen3::Eigen)
 
+ament_auto_add_executable(leap_teleop_engage
+  src/leap_teleop_engage.cpp
+  src/keyboard_deadman.cpp
+)
+
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 
