@@ -32,6 +32,7 @@ class SupervisorFsm {
  private:
   double hold_timeout_;
   State state_ = State::kIdle;
+  bool last_key_held_ = false;
   bool hold_timer_active_ = false;
   double hold_start_ = 0.0;
   std::string reason_ = "key_up";

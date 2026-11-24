@@ -268,13 +268,17 @@ terminal lease would keep the arm moving for hundreds of milliseconds after rele
 |---|---|---|---|
 | `IDLE` | key not held, or `hold_timeout` expired | false | key press with a usable hand → `ENGAGED` |
 | `ENGAGED` | key held, tracking usable | true | key release → `IDLE`; unusable data → `HOLD` |
-| `HOLD` | key held, tracking unusable | false | usable data → `ENGAGED`; key release or `hold_timeout` → `IDLE` |
+| `HOLD` | key held, tracking unusable, or usable again after a loss | false | key release or `hold_timeout` → `IDLE` |
 
-`HOLD` is distinct from `IDLE` because the recovery rule differs: `HOLD` resumes
-automatically when data returns, while `IDLE` requires a re-press. It covers a missing
-hand, a stale frame, a hand that has not been tracked long enough, and rejected frames.
+A key press is a rising edge. Holding the key through `hold_timeout` does not count as a new
+press, so returning data after escalation to `IDLE` still requires a release and a press.
 
-Recovery from `HOLD` **re-latches** the hand pose. Motion during the gap is discarded, so
+`HOLD` covers a missing hand, a stale frame, a hand that has not been tracked long enough,
+and rejected frames. Returning data does not resume motion: the state stays `HOLD` with
+reason `retrigger_required` until the key is released. That forces a new press before
+motion resumes, so re-acquisition never silently takes over from wherever the hand reappears.
+
+A new press from `IDLE` **re-latches** the hand pose. Motion during the gap is discarded, so
 the target cannot jump by however far the hand travelled while untracked. The bridge sees
 `engaged` fall and rise and re-latches the tool pose for the same reason.
 

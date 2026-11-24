@@ -79,8 +79,9 @@ The supervisor state in which motion is authorised and deltas are produced.
 _Avoid_: active, armed
 
 **Hold**:
-The supervisor state in which the key is held but tracking is unusable. No deltas are
-produced and the arm keeps its position; recovery re-latches the hand pose.
+The supervisor state in which the key is held but tracking is unusable, or has become
+usable again after a loss. No deltas are produced and the arm keeps its position. Recovery
+requires releasing and pressing the deadman again; the new press re-latches the hand pose.
 _Avoid_: paused, suspended
 
 ## Frames

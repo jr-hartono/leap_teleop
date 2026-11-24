@@ -11,7 +11,7 @@ std_msgs/Header header
 # IDLE, ENGAGED or HOLD.
 uint8 state
 
-# Short reason token. Empty while ENGAGED.
+# Short reason token. Empty while ENGAGED; retrigger_required while HOLD with good data.
 string reason
 
 # Hand data is present and fresh.
