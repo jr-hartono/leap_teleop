@@ -42,7 +42,7 @@ hardware.
 
 | ID | Ticket | Acceptance |
 |---|---|---|
-| T01 | Create the four packages: `leap_teleop_msgs`, `leap_teleop_core`, `leap_teleop_bridge`, `leap_teleop_bringup`. `ament_cmake_auto`, C++17, `package.xml` with explicit deps, Apache-2.0 headers. | `colcon build` succeeds on a bare Jazzy install. |
+| T01 | Create the four packages: `leap_teleop_msgs`, `leap_teleop_core`, `leap_teleop_bridge`, `leap_teleop_bringup`. `ament_cmake_auto`, C++17, `package.xml` with explicit deps and Apache-2.0 license. | `colcon build` succeeds on a bare Jazzy install. |
 | T02 | Repo hygiene: `.gitignore` (`build/ install/ log/`), `.clang-format`, `.editorconfig`, a short `docs/DEVELOPMENT.md` with build and test commands. | Formatting is one command; docs match a fresh clone. |
 | T03 | CI: one GitHub Actions workflow, `ros:jazzy` container, `colcon build` + `colcon test`, no hardware deps. | Green on a PR that only touches docs. |
 | T04 | Message definitions: `HandArray`, `Hand`, `HandTarget`, `TeleopTarget`, `TeleopState`, `EngageState`, with explicit enum values. | `ros2 interface show` works for all; fields match ARCHITECTURE. |

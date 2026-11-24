@@ -58,7 +58,7 @@ library (`leap_hand_mapping`) so it remains independently testable.
 |---|---|---|
 | `leap_teleop_msgs` | — | `ament_cmake`, `rosidl_default_generators` |
 | `leap_teleop_core` | `leap_tracker`, `leap_teleop_engage`, `leap_teleop_supervisor` | C++17; mapper and FSM as libraries |
-| `leap_teleop_bridge` | `leap_moveit_servo_bridge` | depends on `moveit_servo`; further bridges later |
+| `leap_teleop_bridge` | `leap_moveit_servo_bridge` | publishes a Servo topic; no build dependency on `moveit_servo`; further bridges later |
 | `leap_teleop_bringup` | — | launch files and example config |
 
 The supervisor is a separate process from the tracker so that a crash in device or
@@ -106,6 +106,7 @@ uint8 side
 uint8 state                         # IDLE=0, ENGAGED=1, HOLD=2
 bool engaged
 geometry_msgs/Transform delta       # pose change since engage; identity at engage
+uint8 rotation_frame                # WORLD=0, TOOL=1; composition order for the delta
 uint32 sequence
 
 # TeleopState
@@ -349,7 +350,7 @@ instead of being configured twice.
 |---|---|---|
 | `side` (which hand) | tracker | `HandTarget.side`, copied to `TeleopTarget.side` |
 | `mount_mode`, hand→robot yaw, gains, filters, deadband | tracker | — |
-| `base_frame` | supervisor | `TeleopTarget.header.frame_id` |
+| `base_frame`, `rotation_frame` | supervisor | `TeleopTarget.header.frame_id` (base frame only) |
 | Engage timeouts, `hold_timeout`, `heartbeat_rate` | supervisor | `TeleopState` |
 | `tool_frame`, `planning_frame`, Servo topic, `kp_*`, speed caps, `command_timeout`, `dry_run` | bridge | — |
 | Key, input device, publish rate | engage | `EngageState` |

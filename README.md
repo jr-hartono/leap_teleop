@@ -2,7 +2,7 @@
 
 Teleoperation for robots with the original Leap Motion Controller (v1) on ROS 2.
 
-> **Status: design phase.** No implementation yet. The plan is in [docs/PLAN.md](docs/PLAN.md), the architecture and coordinate model in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and the vocabulary in [GLOSSARY.md](GLOSSARY.md).
+> **Status: v0.1 implementation.** The pipeline builds and its pure logic is unit-tested; the hardware smoke test remains manual. The plan is in [docs/PLAN.md](docs/PLAN.md), the architecture and coordinate model in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and the vocabulary in [GLOSSARY.md](GLOSSARY.md).
 
 ## What this is
 
@@ -64,14 +64,20 @@ rosdep install --from-paths . --ignore-src -y
 colcon build --symlink-install
 ```
 
-The Ultraleap service installs a CMake package, so the driver finds the SDK with:
+The Ultraleap service installs a CMake package. The tracker target is built only when it is
+found, so the rest of the workspace builds without the SDK:
 
 ```cmake
-find_package(LeapSDK REQUIRED)
-target_link_libraries(my_target PRIVATE LeapSDK::LeapC)
+find_package(LeapSDK QUIET)
+if(LeapSDK_FOUND)
+  target_link_libraries(leap_tracker LeapSDK::LeapC)
+endif()
 ```
 
 No vendored SDK, no `leapc_cffi` build, no Python version coupling.
+
+Launch the stack with `ros2 launch leap_teleop_bringup teleop.launch.py`. The bridge starts in
+`dry_run` mode; see [docs/COMMISSIONING.md](docs/COMMISSIONING.md) before enabling motion.
 
 ## Documentation
 
