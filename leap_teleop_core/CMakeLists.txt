@@ -58,6 +58,9 @@ if(BUILD_TESTING)
   ament_add_gtest(test_parameters test/test_parameters.cpp)
   target_link_libraries(test_parameters leap_hand_mapping)
   ament_target_dependencies(test_parameters rclcpp)
+
+  ament_add_gtest(test_keyboard_deadman test/test_keyboard_deadman.cpp)
+  target_link_libraries(test_keyboard_deadman leap_hand_mapping)
 endif()
 
 ament_auto_package(USE_SCOPED_HEADER_INSTALL_DIR)

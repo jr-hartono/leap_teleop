@@ -11,6 +11,8 @@ std::vector<std::string> discover_keyboards();
 
 int key_code_from_name(const std::string& name);
 
+inline bool key_is_held(int evdev_value) { return evdev_value == 1 || evdev_value == 2; }
+
 class KeyboardDeadman {
  public:
   KeyboardDeadman(std::string device_path, int key_code);

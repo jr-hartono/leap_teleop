@@ -166,7 +166,7 @@ void KeyboardDeadman::poll() {
     const ssize_t count = read(fd_, &event, sizeof(event));
     if (count == static_cast<ssize_t>(sizeof(event))) {
       if (event.type == EV_KEY && event.code == key_code_) {
-        engaged_ = (event.value == 1);
+        engaged_ = key_is_held(event.value);
       }
       continue;
     }
