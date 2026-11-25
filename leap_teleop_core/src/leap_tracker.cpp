@@ -65,14 +65,15 @@ constexpr auto kDeviceErrorDelay = std::chrono::seconds(10);
 constexpr char kDeviceFrame[] = "leap_device_frame";
 constexpr char kHandFrame[] = "leap_teleop_frame";
 
+// Names the service's tracking mode after the matching mount_mode value.
 const char* tracking_mode_name(eLeapTrackingMode mode) {
   switch (mode) {
     case eLeapTrackingMode_Desktop:
       return "desktop";
     case eLeapTrackingMode_HMD:
-      return "hmd";
+      return "head_mounted";
     case eLeapTrackingMode_ScreenTop:
-      return "screentop";
+      return "screen_top";
     default:
       return "unknown";
   }
@@ -223,11 +224,12 @@ void LeapTrackerNode::apply_mode_action(TrackingModeGuard::Action action) {
                   tracking_mode_name(tracking_mode_), static_cast<int>(result));
     }
   } else if (action == TrackingModeGuard::Action::kGiveUp) {
-    RCLCPP_ERROR(this->get_logger(),
-                 "the tracking service did not stay in %s mode; another application, such as a "
-                 "second leap_tracker, may be changing it. Tracking continues with lower quality; "
-                 "stop the other application and restart leap_tracker",
-                 tracking_mode_name(tracking_mode_));
+    RCLCPP_ERROR(
+        this->get_logger(),
+        "the tracking service did not stay in mount_mode %s; another application, such as a "
+        "second leap_tracker, may be changing it. Tracking continues with lower quality; "
+        "stop the other application and restart leap_tracker",
+        tracking_mode_name(tracking_mode_));
   }
 }
 
@@ -288,9 +290,10 @@ void LeapTrackerNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
     case eLeapEventType_TrackingMode: {
       const eLeapTrackingMode current = message.tracking_mode_event->current_tracking_mode;
       if (current == tracking_mode_) {
-        RCLCPP_INFO(this->get_logger(), "tracking mode is %s", tracking_mode_name(current));
+        RCLCPP_INFO(this->get_logger(), "tracking service set to mount_mode %s",
+                    tracking_mode_name(current));
       } else {
-        RCLCPP_WARN(this->get_logger(), "tracking mode is %s, expected %s",
+        RCLCPP_WARN(this->get_logger(), "tracking service is in mount_mode %s, expected %s",
                     tracking_mode_name(current), tracking_mode_name(tracking_mode_));
       }
       apply_mode_action(mode_guard_.on_mode(current == tracking_mode_, steady_seconds()));

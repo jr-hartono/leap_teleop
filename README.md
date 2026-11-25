@@ -102,9 +102,9 @@ command.
      rotations pivot about its origin.
    - `cartesian_command_topic`, matching Servo's `cartesian_command_in_topic`.
    - `yaw`: 0 when the robot and the operator face the same way, 180 when the arm faces the
-     operator across the desk. With `mount_mode: desktop` the controller must lie flat; for a
-     controller worn on the head, see [Head-mounted controller](#head-mounted-controller).
-   - `max_linear_velocity: 0.05` for the first runs.
+     operator across the desk.
+   - `mount_mode`: `desktop` with the cameras facing up and LED facing the operator, or `head_mounted`
+     with cameras facing forward and the LED facing down.
 3. Launch. `dry_run` defaults to true, which logs commands instead of publishing them:
 
    ```bash
