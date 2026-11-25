@@ -113,8 +113,6 @@ class LeapTrackerNode : public rclcpp::Node {
   std::atomic<bool> device_available_{false};
   eLeapTrackingMode tracking_mode_ = eLeapTrackingMode_Desktop;
   TrackingModeGuard mode_guard_;  // Used only on the poll thread.
-  std::uint32_t left_sequence_ = 0;
-  std::uint32_t right_sequence_ = 0;
 
   std::mutex state_mutex_;
   const std::chrono::steady_clock::time_point start_time_ = std::chrono::steady_clock::now();
@@ -360,9 +358,7 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
     }
     targets[side].header.stamp = stamp;
     targets[side].header.frame_id = kHandFrame;
-    targets[side].side = side == 0 ? Hand::LEFT : Hand::RIGHT;
     targets[side].pose = *poses[side];
-    targets[side].sequence = side == 0 ? ++left_sequence_ : ++right_sequence_;
   }
 
   {

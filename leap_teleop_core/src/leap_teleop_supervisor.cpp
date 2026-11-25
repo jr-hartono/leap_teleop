@@ -2,7 +2,6 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
-#include <cstdint>
 #include <leap_teleop_core/leap_teleop_supervisor_parameters.hpp>
 #include <memory>
 #include <optional>
@@ -134,16 +133,10 @@ class SupervisorNode : public rclcpp::Node {
         reason = "stale_tracking";
       } else if (tracked_for < min_hand_age_) {
         reason = "hand_too_young";
-      } else if (have_sequence_ && latest_hand_->sequence < last_sequence_) {
-        reason = "invalid_sequence";
       } else if (!finite_pose(latest_hand_->pose)) {
         reason = "invalid_pose";
       } else {
         usable = true;
-      }
-      if (latest_hand_->sequence > last_sequence_ || !have_sequence_) {
-        last_sequence_ = latest_hand_->sequence;
-        have_sequence_ = true;
       }
     }
 
@@ -171,19 +164,15 @@ class SupervisorNode : public rclcpp::Node {
       target.header.stamp = now();
     }
     target.header.frame_id = base_frame_;
-    target.side = side_;
-    const std::string state_name = state_token(result.state);
-    target.state = state_name;
     target.engaged = engaged;
     if (engaged && latest_hand_) {
       target.delta = to_transform_msg(
           delta_builder_->compute(latest_hand_->pose, translation_scale_, rotation_scale_));
     }
-    target.sequence = ++sequence_;
 
     leap_teleop_msgs::msg::TeleopState state;
     state.header.stamp = now();
-    state.state = state_name;
+    state.state = state_token(result.state);
     state.reason = result.reason;
     state.tracking_ok = usable;
     state.hand_present = present;
@@ -206,9 +195,6 @@ class SupervisorNode : public rclcpp::Node {
   double last_hand_time_ = 0.0;
   double hand_first_seen_ = 0.0;
   bool have_hand_ = false;
-  bool have_sequence_ = false;
-  std::uint32_t last_sequence_ = 0;
-  std::uint32_t sequence_ = 0;
 
   std::optional<leap_teleop_msgs::msg::HandPose> latest_hand_;
   std::optional<leap_teleop_msgs::msg::DeadmanState> latest_deadman_;
