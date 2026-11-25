@@ -104,7 +104,8 @@ class VizNode : public rclcpp::Node {
     marker_publisher_ = create_publisher<MarkerArray>("markers", rclcpp::QoS(rclcpp::KeepLast(10)));
 
     hands_subscription_ = create_subscription<leap_teleop_msgs::msg::HandArray>(
-        "hands", rclcpp::QoS(rclcpp::KeepLast(1)),
+        // Best effort, matching the tracker; a reliable subscription would receive nothing.
+        "hands", rclcpp::QoS(rclcpp::KeepLast(1)).best_effort(),
         [this](const leap_teleop_msgs::msg::HandArray::SharedPtr message) {
           hands_ = *message;
           hands_time_ = now().seconds();
