@@ -48,7 +48,7 @@ leap_teleop_viz:
   hand_display_offset:
     type: double_array
     default_value: [0.5, 0.0, 0.3]
-    description: "Where the hands are drawn: position of leap_operator in base_frame, x y z in meters. Display only."
+    description: "Where the hands are drawn: position of leap_operator_frame in base_frame, x y z in meters. Display only."
     read_only: true
     validation:
       fixed_size<>: [3]

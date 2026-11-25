@@ -33,10 +33,11 @@ std::array<visualization_msgs::msg::Marker, 3> axes(const geometry_msgs::msg::Po
                                                     double length, double diameter,
                                                     const std_msgs::msg::ColorRGBA& rgba);
 
-// Static transform base frame -> leap_operator: the supervisor's yaw, placed at a display offset.
+// Static transform base frame -> leap_operator_frame: the supervisor's yaw, placed at a
+// display offset.
 geometry_msgs::msg::Transform base_to_operator(double yaw_deg, const Eigen::Vector3d& offset);
 
-// Static transform leap_operator -> leap_device_frame: the tracker's device -> operator axes.
+// Static transform leap_operator_frame -> leap_device_frame: the tracker's device -> operator axes.
 geometry_msgs::msg::Transform operator_to_device(MountMode mode);
 
 }  // namespace leap_teleop::viz

@@ -64,7 +64,7 @@ constexpr auto kFrameTimeout = std::chrono::milliseconds(250);
 constexpr auto kDeviceWarnDelay = std::chrono::seconds(2);
 constexpr auto kDeviceErrorDelay = std::chrono::seconds(10);
 constexpr char kDeviceFrame[] = "leap_device_frame";
-constexpr char kHandFrame[] = "leap_operator";
+constexpr char kHandFrame[] = "leap_operator_frame";
 
 // Names the service's tracking mode after the matching mount_mode value.
 const char* tracking_mode_name(eLeapTrackingMode mode) {

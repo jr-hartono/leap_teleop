@@ -2,6 +2,6 @@
 # arbitrary; only differences are used. Neither position nor orientation is scaled. The hand is
 # given by the topic, hand_pose/left or hand_pose/right.
 
-# frame_id is leap_operator.
+# frame_id is leap_operator_frame.
 std_msgs/Header header
 geometry_msgs/Pose pose

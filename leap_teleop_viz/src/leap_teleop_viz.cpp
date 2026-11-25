@@ -49,7 +49,7 @@ constexpr char kRawPalmNs[] = "raw_palm";
 constexpr char kFilteredPalmNs[] = "filtered_palm";
 
 // Frames of the tracker's messages.
-constexpr char kOperatorFrame[] = "leap_operator";
+constexpr char kOperatorFrame[] = "leap_operator_frame";
 constexpr char kDeviceFrame[] = "leap_device_frame";
 
 using leap_teleop_msgs::msg::Hand;
@@ -148,10 +148,6 @@ class VizNode : public rclcpp::Node {
 
  private:
   void set_supervisor_parameter(const std::string& name, const rclcpp::Parameter& parameter) {
-    if (name == "side" && parameter.get_type() == rclcpp::ParameterType::PARAMETER_STRING) {
-      side_ = parameter.as_string();
-      return;
-    }
     if (parameter.get_type() != rclcpp::ParameterType::PARAMETER_DOUBLE) {
       return;
     }
@@ -176,10 +172,10 @@ class VizNode : public rclcpp::Node {
     *scale = parameter.as_double();
   }
 
-  // Reads the supervisor's parameters until all are known. yaw and side are read-only; the scales
+  // Reads the supervisor's parameters until all are known. yaw is read-only; the scales
   // then follow parameter events.
   void fetch_supervisor() {
-    if ((translation_scale_ && rotation_scale_ && yaw_ && side_) || fetching_supervisor_) {
+    if ((translation_scale_ && rotation_scale_ && yaw_) || fetching_supervisor_) {
       return;
     }
     if (!supervisor_client_->service_is_ready()) {
@@ -190,7 +186,7 @@ class VizNode : public rclcpp::Node {
     }
     fetching_supervisor_ = true;
     supervisor_client_->get_parameters(
-        {"translation_scale", "rotation_scale", "yaw", "side"},
+        {"translation_scale", "rotation_scale", "yaw"},
         [this](std::shared_future<std::vector<rclcpp::Parameter>> future) {
           fetching_supervisor_ = false;
           try {
@@ -401,7 +397,7 @@ class VizNode : public rclcpp::Node {
       label.pose.orientation.w = 1.0;
       label.scale.z = 0.03;
       label.color = viz::color(1.0F, 1.0F, 1.0F);
-      label.text = kSides[index] + (side_ && *side_ == kSides[index] ? " (teleop)" : "");
+      label.text = kSides[index];
       filtered.push_back(label);
       // Each side keeps its own ids, so one hand leaving does not touch the other's markers.
       const int first_id = static_cast<int>(index) * 10;
@@ -449,7 +445,6 @@ class VizNode : public rclcpp::Node {
   std::optional<double> translation_scale_;
   std::optional<double> rotation_scale_;
   std::optional<double> yaw_;
-  std::optional<std::string> side_;
   bool fetching_supervisor_ = false;
   std::shared_ptr<rclcpp::AsyncParametersClient> tracker_client_;
   std::string tracker_name_;
