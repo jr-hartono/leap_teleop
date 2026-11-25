@@ -16,19 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Hardware is deliberately absent from CI: the tracker target is built only
-      # when find_package(LeapSDK QUIET) succeeds, and the bridge only publishes a
-      # topic with no link dependency on moveit_servo. LeapSDK, MoveIt Servo and the
-      # Ultraleap service are not installed here.
+      # No LeapSDK or MoveIt here: leap_tracker is skipped and the bridge needs Servo only at runtime.
       - name: Install ROS dependencies
         run: |
           set -e
           sudo rosdep update
           sudo rosdep install --from-paths . --ignore-src --rosdistro jazzy -y
 
-      # The config checker is newer than the Jazzy 0.7.7 binary package, so install
-      # just the Python tool in an isolated venv. Pin the commit for reproducible CI.
-      # Unset ROS paths so the venv copy wins over the system-installed generator.
+      # The validator is newer than Jazzy's package: pinned venv install, ROS paths unset.
       - name: Validate parameter configuration
         run: |
           set -e

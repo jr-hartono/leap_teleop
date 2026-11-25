@@ -180,6 +180,13 @@ The bridge stops publishing 0.1 s after the last fresh delta, so Servo's
 LeapC talks to the tracking service on the same host. If the robot stack runs in a container,
 run the tracker and deadman on the host and the rest in the container.
 
+## Planned
+
+- Gripper control with a pinch gesture, with a demo.
+- Dual-arm control: the left and right hands each drive one arm.
+- Demo with the arms of a Unitree G1 humanoid.
+- Head-mounted controller (`mount_mode: head_mounted`).
+
 ## Develop
 
 ```bash
