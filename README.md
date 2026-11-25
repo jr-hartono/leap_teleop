@@ -186,6 +186,8 @@ run the tracker and deadman on the host and the rest in the container.
 - Dual-arm control: the left and right hands each drive one arm.
 - Demo with the arms of a Unitree G1 humanoid.
 - Head-mounted controller (`mount_mode: head_mounted`).
+- Visualization in RViz of the detected hand pose before and after scaling, and of the twist
+  command sent to the robot.
 
 ## Develop
 
