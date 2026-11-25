@@ -14,18 +14,17 @@ from ament_index_python.packages import (
 )
 from launch import LaunchDescription
 from launch.actions import (
-    DeclareLaunchArgument,
     ExecuteProcess,
     IncludeLaunchDescription,
     OpaqueFunction,
     RegisterEventHandler,
 )
 from launch.event_handlers import OnProcessExit
-from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 DEMO_PACKAGES = ["moveit_servo", "ur_robot_driver", "ur_moveit_config"]
+UR_TYPE = "ur5e"
 
 # Servo and MoveIt planning share UR's default controller, so no controller switch is needed.
 CONTROLLER = "scaled_joint_trajectory_controller"
@@ -60,10 +59,9 @@ def check_demo_packages(context):
 def servo_node(context):
     from moveit_configs_utils import MoveItConfigsBuilder
 
-    ur_type = LaunchConfiguration("ur_type").perform(context)
     moveit_config = (
         MoveItConfigsBuilder(robot_name="ur", package_name="ur_moveit_config")
-        .robot_description_semantic(Path("srdf") / "ur.srdf.xacro", {"name": ur_type})
+        .robot_description_semantic(Path("srdf") / "ur.srdf.xacro", {"name": UR_TYPE})
         .to_moveit_configs()
     )
     servo_yaml = os.path.join(
@@ -111,7 +109,7 @@ def robot(context):
             "ur_robot_driver",
             "ur_control.launch.py",
             {
-                "ur_type": LaunchConfiguration("ur_type"),
+                "ur_type": UR_TYPE,
                 "robot_ip": "0.0.0.0",
                 "use_mock_hardware": "true",
                 "initial_joint_controller": CONTROLLER,
@@ -131,7 +129,6 @@ def include(package, launch_file, arguments):
 
 
 def generate_launch_description():
-    ur_type = LaunchConfiguration("ur_type")
     # Servo ignores command_in_type from YAML and must be switched to TWIST (1) at runtime.
     # The call blocks until Servo is up.
     switch_to_twist = ExecuteProcess(
@@ -167,17 +164,15 @@ def generate_launch_description():
     )
     return LaunchDescription(
         [
-            DeclareLaunchArgument("ur_type", default_value="ur5e"),
-            DeclareLaunchArgument("rviz", default_value="true"),
             OpaqueFunction(function=check_demo_packages),
             OpaqueFunction(function=robot),
             include(
                 "ur_moveit_config",
                 "ur_moveit.launch.py",
                 {
-                    "ur_type": ur_type,
+                    "ur_type": UR_TYPE,
                     "launch_servo": "false",
-                    "launch_rviz": LaunchConfiguration("rviz"),
+                    "launch_rviz": "true",
                 },
             ),
             OpaqueFunction(function=servo_node),

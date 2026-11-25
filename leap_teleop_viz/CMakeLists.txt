@@ -14,6 +14,7 @@ generate_parameter_library(leap_teleop_viz_parameters config/leap_teleop_viz_par
 
 install(FILES config/leap_teleop_viz_parameters.yaml
   DESTINATION share/${PROJECT_NAME}/parameter_definitions)
+install(DIRECTORY rviz/ DESTINATION share/${PROJECT_NAME}/rviz)
 
 ament_auto_add_library(leap_teleop_viz_markers SHARED src/markers.cpp)
 target_link_libraries(leap_teleop_viz_markers Eigen3::Eigen)

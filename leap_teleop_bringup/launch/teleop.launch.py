@@ -1,6 +1,6 @@
 import os
 
-from ament_index_python.packages import get_package_prefix
+from ament_index_python.packages import get_package_prefix, get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
@@ -32,6 +32,7 @@ def launch_setup(context, *args):
     params_file = LaunchConfiguration("params_file").perform(context)
     use_sim_time = LaunchConfiguration("use_sim_time").perform(context) == "true"
     dry_run = LaunchConfiguration("dry_run").perform(context).lower() == "true"
+    rviz = LaunchConfiguration("rviz").perform(context).lower() == "true"
 
     parameters = [params_file, {"use_sim_time": use_sim_time}]
     bridge_parameters = parameters + [{"dry_run": dry_run}]
@@ -66,6 +67,32 @@ def launch_setup(context, *args):
             parameters=bridge_parameters,
         ),
     ]
+    if rviz:
+        nodes += [
+            Node(
+                package="leap_teleop_viz",
+                executable="leap_teleop_viz",
+                name="leap_teleop_viz",
+                namespace=leap_namespace,
+                parameters=parameters,
+            ),
+            Node(
+                package="rviz2",
+                executable="rviz2",
+                name="leap_teleop_rviz",
+                arguments=[
+                    "-d",
+                    os.path.join(
+                        get_package_share_directory("leap_teleop_viz"),
+                        "rviz",
+                        "leap_teleop.rviz",
+                    ),
+                ],
+                # The config subscribes to /leap_teleop/markers.
+                remappings=[("/leap_teleop/markers", leap_namespace + "/markers")],
+                parameters=[{"use_sim_time": use_sim_time}],
+            ),
+        ]
     return [LaunchDescription(nodes)]
 
 
@@ -94,6 +121,11 @@ def generate_launch_description():
                 "dry_run",
                 default_value="true",
                 description="Log bridge commands without publishing them.",
+            ),
+            DeclareLaunchArgument(
+                "rviz",
+                default_value="false",
+                description="Start leap_teleop_viz and an RViz window showing its markers.",
             ),
             OpaqueFunction(function=launch_setup),
         ]

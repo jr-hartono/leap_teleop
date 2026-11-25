@@ -27,7 +27,7 @@ Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo
 | `/leap_teleop/pose_delta` | `TeleopDelta` | supervisor | Pose change since engagement; the bridge's input |
 | `/leap_teleop/state` | `TeleopState` | supervisor | `idle`, `engaged` or `hold`, with the reason |
 | `/leap_teleop/command` | `geometry_msgs/TwistStamped` | bridge | Twist the bridge computed, also in dry run |
-| `/leap_teleop/markers` | `visualization_msgs/MarkerArray` | viz | RViz markers of the command |
+| `/leap_teleop/markers` | `visualization_msgs/MarkerArray` | viz | RViz markers of the command and the hands |
 
 The bridge publishes `geometry_msgs/TwistStamped` on `cartesian_command_topic`
 (default `/servo_node/delta_twist_cmds`).
@@ -141,6 +141,19 @@ command.
    ros2 param set /leap_teleop/leap_moveit_servo_bridge max_linear_velocity 0.1
    ```
 
+## Visualization
+
+Add `rviz:=true` to `teleop.launch.py` or the demo to open a second RViz window with the
+`leap_teleop_viz` markers. The fixed frame is `base_link`; change it in RViz if your base frame
+differs.
+
+- Grey axes: the tool pose latched on the key press.
+- Solid axes: the target the bridge drives to.
+- Faded axes: the target without `translation_scale` and `rotation_scale`.
+- Yellow and magenta arrows at the tool: the linear and angular twist.
+- Hands, drawn at `hand_display_offset`: orange for left, cyan for right, faded raw from the
+  controller, solid after filtering.
+
 ## Tuning
 
 Tune in dry run first and change one parameter at a time. All of these can be changed with
@@ -192,8 +205,6 @@ run the tracker and deadman on the host and the rest in the container.
 - Gripper control with a pinch gesture, with a demo.
 - Dual-arm control: the left and right hands each drive one arm.
 - Demo with the arms of a Unitree G1 humanoid.
-- Visualization in RViz of the detected hand pose before and after scaling, and of the twist
-  command sent to the robot.
 
 ## Develop
 
