@@ -1,9 +1,9 @@
 # Example configuration. Every value is the default; copy the file and change it for your robot.
 # (dynamic) marks parameters that can be changed at runtime.
 
-leap_tracker:
+/**/leap_tracker:
   ros__parameters:
-    # Device mounting: desktop | head-mounted.
+    # Device mounting: desktop | head_mounted.
     mount_mode: desktop
     # Hand used for teleoperation: right | left.
     side: right
@@ -27,7 +27,7 @@ leap_tracker:
     # One-Euro filter speed coefficient. Higher follows fast motion better. (dynamic)
     filter_beta: 0.05
 
-leap_teleop_deadman:
+/**/leap_teleop_deadman:
   ros__parameters:
     # Key to authorize motion: a-z, 0-9, f1-f12, space, enter, tab, esc, backspace, delete,
     # insert, home, end, pageup, pagedown, up, down, left, right, capslock, and left or right
@@ -36,7 +36,7 @@ leap_teleop_deadman:
     # Keyboard event device path, /dev/input/by-id/...-event-kbd. Empty listens on all keyboards.
     device: ""
 
-leap_teleop_supervisor:
+/**/leap_teleop_supervisor:
   ros__parameters:
     # TF frame of the deltas. yaw is relative to it.
     base_frame: base_link
@@ -48,7 +48,7 @@ leap_teleop_supervisor:
     # Time in hold before idle, in seconds. 0 stays in hold.
     hold_timeout: 2.0
 
-leap_moveit_servo_bridge:
+/**/leap_moveit_servo_bridge:
   ros__parameters:
     # TF frame of the TCP. Rotations pivot about it.
     tool_frame: tool0
