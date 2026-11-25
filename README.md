@@ -95,20 +95,92 @@ keyboard only. Copy [example_arm.yaml](leap_teleop_bringup/config/example_arm.ya
 
 ## Use it with your robot
 
-1. Start your robot's MoveIt Servo.
-2. Copy [example_arm.yaml](leap_teleop_bringup/config/example_arm.yaml) and set `base_frame`,
-   `tool_frame`, `planning_frame`, `cartesian_command_topic` and `yaw` for your setup.
-3. Launch in dry run, which logs commands without publishing them:
+1. Start your robot's MoveIt Servo, with conservative velocity and acceleration limits.
+2. Copy [example_arm.yaml](leap_teleop_bringup/config/example_arm.yaml) and set:
+   - `base_frame`, `tool_frame` and `planning_frame`. `tool_frame` must be the real TCP, because
+     rotations pivot about its origin.
+   - `cartesian_command_topic`, matching Servo's `cartesian_command_in_topic`.
+   - `yaw`: 0 when the robot and the operator face the same way, 180 when the arm faces the
+     operator across the desk. The controller must lie flat.
+   - `max_linear_velocity: 0.05` for the first runs.
+3. Launch. `dry_run` defaults to true, which logs commands instead of publishing them:
 
    ```bash
    ros2 launch leap_teleop_bringup teleop.launch.py params_file:=/path/to/my_arm.yaml
    ```
 
-4. Follow [COMMISSIONING.md](docs/COMMISSIONING.md) before you add `dry_run:=false`.
+4. Select Servo's twist input. Servo ignores `command_in_type` in YAML, so do this after every
+   Servo start. Also make sure the controller behind Servo's `command_out_topic` is active.
 
-Gains, filters and speed limits are explained in [TUNING.md](docs/TUNING.md). Run
-`ros2 param describe <node> <param>` to see a parameter's range and whether it can be changed
-while running.
+   ```bash
+   ros2 service call /servo_node/switch_command_type moveit_msgs/srv/ServoCommandType "{command_type: 1}"
+   ```
+
+5. Check the states with `ros2 topic echo /leap_teleop/state`:
+
+   | Do | Expect |
+   |---|---|
+   | Hand in view, key up | `state: idle`, `hand_present: true` |
+   | Hold the key | `state: engaged` |
+   | Pull the hand away, key held | `state: hold` |
+   | Return the hand, key held | still `hold`, `reason: retrigger_required` |
+   | Release and press again | `state: engaged` |
+
+6. Hold the key, move, and release. The bridge log stops printing `dry_run twist: ...`.
+7. Only then relaunch with `dry_run:=false` and repeat step 6. Releasing the key must stop the
+   arm. Keep the operator outside the arm's reach.
+8. Raise the speed caps in small steps while running, checking each time that release stops the
+   arm:
+
+   ```bash
+   ros2 param set /leap_teleop/leap_moveit_servo_bridge max_linear_velocity 0.1
+   ```
+
+## Tuning
+
+Tune in dry run first and change one parameter at a time. All of these can be changed with
+`ros2 param set` while running; `ros2 param describe <node> <param>` shows the range.
+
+| Symptom | Parameter | Change |
+|---|---|---|
+| Jitter | `filter_min_cutoff` | Decrease |
+| Lag on all motion | `filter_min_cutoff` | Increase |
+| Lag on fast motion only | `filter_beta` | Increase |
+| Drift while the hand is still | `deadband_translation`, `deadband_rotation` | Increase |
+| Chatter at the edge of the deadband | `deadband_hysteresis` | Increase |
+| Arm travels too little or too much | `translation_scale`, `rotation_scale` | Adjust |
+| Sluggish or twitchy response | `kp_linear`, `kp_angular` | Increase or decrease |
+| Motion too fast | `max_linear_velocity`, `max_angular_velocity` | Decrease |
+
+A wrong `yaw` gives wrong directions, which no gain fixes. Palm orientation is noisiest when the
+palm is edge-on to the camera.
+
+## How it works
+
+The tracker maps the palm into the robot's base axes (hand away from you → +x, up → +z, right →
+−y, then rotated by `yaw`), and scales and filters it. When the key is pressed, the supervisor
+latches the hand pose and publishes the change since then. The bridge latches the tool pose from
+TF on the same press, adds the translation, applies the rotation about the tool origin, and
+drives Servo with a P controller clamped to the speed caps.
+
+| State | When | Motion |
+|---|---|---|
+| `idle` | key up, or `hold_timeout` expired | no |
+| `engaged` | key held, hand tracked and fresh | yes |
+| `hold` | key held, tracking lost or just recovered | no, until release and press |
+
+Releasing the key stops the deltas. The bridge then stops publishing and Servo's
+`incoming_command_timeout` halts the arm. A new press re-latches both poses, so the arm never
+jumps to where the hand went while it was untracked.
+
+No single node can check these relations, so keep them when changing parameters:
+
+- `supervisor.heartbeat_rate > 1 / bridge.command_timeout`
+- `supervisor.engage_timeout >= 3 / deadman.publish_rate`
+- `bridge.command_timeout <= Servo incoming_command_timeout`
+
+LeapC talks to the tracking service on the same host. If the robot stack runs in a container,
+run the tracker and deadman on the host and the rest in the container.
 
 ## Develop
 
@@ -119,11 +191,12 @@ colcon test && colcon test-result --verbose
 
 The workspace builds without the Ultraleap service. Only `leap_tracker` is skipped.
 
-## Documentation
+Each node's parameters are defined in its package's `config/*_parameters.yaml`, which sets types,
+defaults, ranges and whether a parameter can change at runtime. CI checks `example_arm.yaml`
+against these definitions with `generate_parameter_library_validate --strict`; see
+[the workflow](.github/workflows/build-and-test.yml) for the command.
 
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md): frames, messages, state machine and safety model
-- [COMMISSIONING.md](docs/COMMISSIONING.md): bringing up a real arm
-- [docs/adr/](docs/adr/): design decisions
+C++ is formatted with the repo's [.clang-format](.clang-format), and Python with `ruff format`.
 
 ## License
 
