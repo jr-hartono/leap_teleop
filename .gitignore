@@ -11,3 +11,6 @@ __pycache__/
 *.swp
 *.swo
 *~
+
+# Git worktrees for parallel work
+.worktrees/
