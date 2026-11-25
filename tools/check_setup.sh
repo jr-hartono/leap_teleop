@@ -3,8 +3,9 @@
 # Usage: tools/check_setup.sh [--demo]
 
 failures=0
-pass() { printf '  \e[32mok\e[0m    %s\n' "$1"; }
-fail() { printf '  \e[31mFAIL\e[0m  %s\n        fix: %s\n' "$1" "$2"; failures=$((failures + 1)); }
+if [ -t 1 ]; then green=$'\e[32m' red=$'\e[31m' reset=$'\e[0m'; fi
+pass() { printf '  %sok%s    %s\n' "$green" "$reset" "$1"; }
+fail() { printf '  %sFAIL%s  %s\n        fix: %s\n' "$red" "$reset" "$1" "$2"; failures=$((failures + 1)); }
 check() { local label=$1 fix=$2; shift 2; if "$@" >/dev/null 2>&1; then pass "$label"; else fail "$label" "$fix"; fi; }
 
 has_package() { ros2 pkg prefix "$1"; }

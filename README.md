@@ -1,92 +1,130 @@
 # leap_teleop
 
-Teleoperation for robots with the original Leap Motion Controller (v1) on ROS 2.
+Teleoperate a robot arm with your hand, using the original Leap Motion Controller (v1) and ROS 2.
 
-> **Status: v0.1 implementation.** The pipeline builds and its pure logic is unit-tested; the hardware smoke test remains manual. The plan is in [docs/PLAN.md](docs/PLAN.md), the architecture and coordinate model in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and the vocabulary in [GLOSSARY.md](GLOSSARY.md).
-
-## What this is
-
-`leap_teleop` turns hand tracking from a Leap Motion Controller into a robot-agnostic
-teleoperation stream, then adapts that stream to one specific robot. Adding a robot
-means adding a bridge; it does not mean touching the tracking, mapping or safety code.
+Hold a key, move your hand, and the end effector follows. Release the key and the arm stops.
 
 ```
-┌─────────────┐   ┌──────────────┐   ┌────────────────────┐   ┌──────────────────┐
-│ Leap v1     │──▶│ leap_tracker │──▶│ leap_teleop_       │──▶│ leap_moveit_     │
-│ (Gemini)    │   │ device +     │   │ supervisor         │   │ servo_bridge     │
-│             │   │ hand mapping │   │ engage + delta     │   │ robot-specific   │
-└─────────────┘   └──────────────┘   └────────────────────┘   └──────────────────┘
-       raw hands        hand poses           pose deltas             robot commands
+Leap v1 → leap_tracker → leap_teleop_supervisor → leap_moveit_servo_bridge → MoveIt Servo
+          hand pose       deadman + pose delta      robot-specific twist
 ```
 
-The seam is the **teleop delta**: a pose delta relative to the tool pose latched at
-engagement, plus engagement state and a sequence number. Every robot bridge consumes the
-same type.
-
-## Scope (v0.1)
-
-- One Leap Motion Controller (v1), desktop mount, lying flat.
-- One 6-DOF arm controlled through MoveIt Servo.
-- Right hand by default, palm pose only. No finger or gripper control yet.
-- Engage-relative delta control with fixed gains, filtering, deadband and velocity caps.
-- Full 3-DOF rotation, applied in the base frame about the tool origin.
-- Keyboard deadman (`evdev`) plus hand presence.
-
-Explicitly out of scope for v0.1: absolute/calibrated mapping, velocity retargeting,
-palm-width normalisation, dexterous hand retargeting, head-mounted mode, camera image
-streaming, and bridges other than MoveIt Servo.
-
-## Packages
+Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo setup.
 
 | Package | Contents |
 |---|---|
-| `leap_teleop_msgs` | Messages: hands, hand poses, pose deltas, state, deadman |
-| `leap_teleop_core` | `leap_tracker`, `leap_teleop_supervisor`, `leap_teleop_deadman`; `leap_hand_mapping` library |
-| `leap_teleop_bridge` | `leap_moveit_servo_bridge` (further bridges later) |
-| `leap_teleop_bringup` | Launch files and the example configuration |
+| `leap_teleop_msgs` | Message definitions |
+| `leap_teleop_core` | `leap_tracker`, `leap_teleop_deadman`, `leap_teleop_supervisor` nodes |
+| `leap_teleop_bridge` | `leap_moveit_servo_bridge` node |
+| `leap_teleop_bringup` | Launch files and example configuration |
+
+| Topic | Type | From | Content |
+|---|---|---|---|
+| `/leap_teleop/hands` | `HandArray` | tracker | All tracked hands in the device frame, for diagnostics |
+| `/leap_teleop/hand_pose` | `HandPose` | tracker | Filtered palm pose of the selected hand, in robot axes |
+| `/leap_teleop/deadman` | `DeadmanState` | deadman | Whether the deadman key is held |
+| `/leap_teleop/pose_delta` | `TeleopDelta` | supervisor | Pose change since engagement; the bridge's input |
+| `/leap_teleop/state` | `TeleopState` | supervisor | `idle`, `engaged` or `hold`, with the reason |
+
+The bridge publishes `geometry_msgs/TwistStamped` on `cartesian_command_topic`
+(default `/servo_node/delta_twist_cmds`).
 
 ## Requirements
 
-- Ubuntu 24.04 and ROS 2 Jazzy. Humble and Lyrical are intended follow-ups; the code
-  should avoid Jazzy-only APIs.
-- Ultraleap Hand Tracking Service with Gemini. Verified here: service package
-  `6.2.0.0`, `libLeapC` reporting Gemini `5.1.15`. Gemini is the last line that
-  supports the original controller, so treat the service version as pinned.
-- Leap Motion Controller (v1) on a USB 3 port, user in the `plugdev` group.
-- `ros-jazzy-moveit-servo` for the first bridge.
-- A C++17 compiler. No Python bindings are used.
+- Ubuntu 24.04 with ROS 2 Jazzy
+- Leap Motion Controller (v1) on a USB 3 port
+- Ultraleap Hand Tracking Service, tested with 6.2.0
 
-## Build
+## Install
+
+1. Download the Ultraleap Hand Tracking Service for Linux from
+   <https://www.ultraleap.com/downloads/leap-controller/> and install it:
+
+   ```bash
+   sudo apt install ./tracking-software-linux-x64-6.2.0.deb
+   ```
+
+   Optional: the Ultraleap Control Panel (`ultraleap-hand-tracking-control-panel_1125862.deb`)
+   shows what the controller sees. It is not required for use with ROS.
+   Ultraleap's apt repository, which hosted it, is no longer available, but a copy is available on the
+   [Internet Archive](https://web.archive.org/web/20260124060130if_/https://repo.ultraleap.com/apt/pool/main/u/ultraleap-hand-tracking-control-panel/ultraleap-hand-tracking-control-panel_1125862.deb).
+
+2. Allow your user to read the keyboard, which is used as the deadman key. Log out and back in
+   afterwards.
+
+   ```bash
+   sudo usermod -aG input $USER
+   ```
+
+3. Clone into the `src` directory of a colcon workspace, then build from the workspace root:
+
+   ```bash
+   source /opt/ros/jazzy/setup.bash
+   git clone https://github.com/jr-hartono/leap_teleop.git src/leap_teleop
+   rosdep install --from-paths src --ignore-src -y
+   colcon build
+   source install/setup.bash
+   ```
+
+4. Check the setup from the workspace root. Each failed check prints its fix.
+
+   ```bash
+   src/leap_teleop/tools/check_setup.sh
+   ```
+
+## Try the demo
+
+The demo drives a simulated UR5e in RViz, so no robot is needed. It needs three more packages:
 
 ```bash
-source /opt/ros/jazzy/setup.bash
-rosdep install --from-paths . --ignore-src -y
+sudo apt install ros-jazzy-moveit-servo ros-jazzy-ur-robot-driver ros-jazzy-ur-moveit-config
+export ROS_DOMAIN_ID=42   # keep the demo away from any real robot on your network
+ros2 launch leap_teleop_bringup demo_ur_mock.launch.py
+```
+
+Hold **space**, move your right hand above the controller, and the arm follows. Release space to
+stop. To re-centre, release, move your hand back, and press again.
+
+Servo logs `Waiting to receive robot state update.` for a few seconds at startup. That stops once
+the arm has moved to its start pose.
+
+If space does nothing, look for `using keyboard ...` in the log: the deadman listens to one
+keyboard only. Copy [example_arm.yaml](leap_teleop_bringup/config/example_arm.yaml), set
+`device` to your keyboard's `/dev/input/by-id/...-event-kbd` path, and add
+`params_file:=/path/to/copy.yaml` to the launch command.
+
+## Use it with your robot
+
+1. Start your robot's MoveIt Servo.
+2. Copy [example_arm.yaml](leap_teleop_bringup/config/example_arm.yaml) and set `base_frame`,
+   `tool_frame`, `planning_frame`, `cartesian_command_topic` and `yaw` for your setup.
+3. Launch in dry run, which logs commands without publishing them:
+
+   ```bash
+   ros2 launch leap_teleop_bringup teleop.launch.py params_file:=/path/to/my_arm.yaml
+   ```
+
+4. Follow [COMMISSIONING.md](docs/COMMISSIONING.md) before you add `dry_run:=false`.
+
+Gains, filters and speed limits are explained in [TUNING.md](docs/TUNING.md). Run
+`ros2 param describe <node> <param>` to see a parameter's range and whether it can be changed
+while running.
+
+## Develop
+
+```bash
 colcon build --symlink-install
+colcon test && colcon test-result --verbose
 ```
 
-The Ultraleap service installs a CMake package. The tracker target is built only when it is
-found, so the rest of the workspace builds without the SDK:
-
-```cmake
-find_package(LeapSDK QUIET)
-if(LeapSDK_FOUND)
-  target_link_libraries(leap_tracker LeapSDK::LeapC)
-endif()
-```
-
-No vendored SDK, no `leapc_cffi` build, no Python version coupling.
-
-Launch the stack with `ros2 launch leap_teleop_bringup teleop.launch.py`. The bridge starts in
-`dry_run:=true` mode; see [docs/COMMISSIONING.md](docs/COMMISSIONING.md) before enabling motion.
+The workspace builds without the Ultraleap service. Only `leap_tracker` is skipped.
 
 ## Documentation
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — pipeline, frames, messages, safety, deployment
-- [docs/PLAN.md](docs/PLAN.md) — phases, tickets, risks, settled decisions
-- [leap_teleop_bringup/config/example_arm.yaml](leap_teleop_bringup/config/example_arm.yaml) — every parameter with units and ranges
-- [docs/adr/](docs/adr/) — decisions that are hard to reverse
-- [GLOSSARY.md](GLOSSARY.md) — the project's vocabulary
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md): frames, messages, state machine and safety model
+- [COMMISSIONING.md](docs/COMMISSIONING.md): bringing up a real arm
+- [docs/adr/](docs/adr/): design decisions
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+Apache-2.0
