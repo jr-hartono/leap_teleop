@@ -232,7 +232,7 @@ class VizNode : public rclcpp::Node {
     if (!yaw_ || !mount_mode_) {
       return;
     }
-    const auto& offset = params_.hand_display_offset;
+    const auto& offset = params_.leap_operator_frame_offset;
     geometry_msgs::msg::TransformStamped base_to_operator;
     base_to_operator.header.stamp = now();
     base_to_operator.header.frame_id = params_.base_frame;

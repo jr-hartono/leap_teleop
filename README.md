@@ -151,7 +151,7 @@ differs.
 - Solid axes: the target the bridge drives to.
 - Faded axes: the target without `translation_scale` and `rotation_scale`.
 - Yellow and magenta arrows at the tool: the linear and angular twist.
-- Hands, drawn at `hand_display_offset`: orange for left, cyan for right, faded raw from the
+- Hands, drawn at `leap_operator_frame_offset`: orange for left, cyan for right, faded raw from the
   controller, solid after filtering.
 
 ## Tuning
