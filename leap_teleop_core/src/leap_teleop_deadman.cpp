@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "leap_teleop_core/keyboard_deadman.hpp"
+#include "leap_teleop_core/timing.hpp"
 #include "leap_teleop_msgs/msg/deadman_state.hpp"
 
 namespace leap_teleop {
@@ -20,7 +21,6 @@ class DeadmanNode : public rclcpp::Node {
     const auto params = param_listener_->get_params();
     const int key_code = key_code_from_name(params.key);
     const std::string configured_device = params.device;
-    publish_rate_ = params.publish_rate;
 
     const std::vector<std::string> candidates = discover_keyboards();
     std::string selected;
@@ -51,7 +51,7 @@ class DeadmanNode : public rclcpp::Node {
     publisher_ = create_publisher<leap_teleop_msgs::msg::DeadmanState>(
         "deadman", rclcpp::QoS(rclcpp::KeepLast(1)));
     const auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::duration<double>(1.0 / publish_rate_));
+        std::chrono::duration<double>(1.0 / timing::kDeadmanRate));
     timer_ = create_wall_timer(period, [this]() { on_tick(); });
   }
 
@@ -71,7 +71,6 @@ class DeadmanNode : public rclcpp::Node {
   }
 
   std::shared_ptr<leap_teleop_deadman::ParamListener> param_listener_;
-  double publish_rate_ = 20.0;
   bool loss_reported_ = false;
   std::unique_ptr<KeyboardDeadman> deadman_;
   rclcpp::Publisher<leap_teleop_msgs::msg::DeadmanState>::SharedPtr publisher_;

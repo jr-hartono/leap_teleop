@@ -17,6 +17,7 @@
 
 #include "leap_teleop_core/delta_builder.hpp"
 #include "leap_teleop_core/frames.hpp"
+#include "leap_teleop_core/timing.hpp"
 #include "leap_teleop_msgs/msg/teleop_delta.hpp"
 
 namespace leap_teleop {
@@ -58,7 +59,6 @@ class MoveItServoBridge : public rclcpp::Node {
     kp_angular_ = params.kp_angular;
     max_linear_velocity_ = params.max_linear_velocity;
     max_angular_velocity_ = params.max_angular_velocity;
-    command_timeout_ = params.command_timeout;
     publish_period_ = params.publish_period;
     dry_run_ = params.dry_run;
 
@@ -141,7 +141,7 @@ class MoveItServoBridge : public rclcpp::Node {
       reason = "no_target";
     } else if (!target_.engaged) {
       reason = "not_engaged";
-    } else if (now().seconds() - stamp_seconds(target_.header.stamp) > command_timeout_) {
+    } else if (now().seconds() - stamp_seconds(target_.header.stamp) > timing::kCommandTimeout) {
       reason = "stale_target";
     } else if (!latched_) {
       reason = "no_latch";
@@ -217,7 +217,6 @@ class MoveItServoBridge : public rclcpp::Node {
   double kp_angular_ = 4.0;
   double max_linear_velocity_ = 0.2;
   double max_angular_velocity_ = 0.5;
-  double command_timeout_ = 0.09;
   double publish_period_ = 0.01;
   bool dry_run_ = true;
   bool have_target_ = false;

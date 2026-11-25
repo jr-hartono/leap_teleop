@@ -173,11 +173,8 @@ Releasing the key stops the deltas. The bridge then stops publishing and Servo's
 `incoming_command_timeout` halts the arm. A new press re-latches both poses, so the arm never
 jumps to where the hand went while it was untracked.
 
-No single node can check these relations, so keep them when changing parameters:
-
-- `supervisor.heartbeat_rate > 1 / bridge.command_timeout`
-- `supervisor.engage_timeout >= 3 / deadman.publish_rate`
-- `bridge.command_timeout <= Servo incoming_command_timeout`
+The bridge stops publishing 0.1 s after the last fresh delta, so Servo's
+`incoming_command_timeout` must be at least 0.1 s, which is its default.
 
 LeapC talks to the tracking service on the same host. If the robot stack runs in a container,
 run the tracker and deadman on the host and the rest in the container.

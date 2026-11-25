@@ -12,6 +12,7 @@
 
 #include "leap_teleop_core/delta_builder.hpp"
 #include "leap_teleop_core/supervisor_fsm.hpp"
+#include "leap_teleop_core/timing.hpp"
 #include "leap_teleop_msgs/msg/deadman_state.hpp"
 #include "leap_teleop_msgs/msg/hand_pose.hpp"
 #include "leap_teleop_msgs/msg/teleop_delta.hpp"
@@ -54,8 +55,6 @@ class SupervisorNode : public rclcpp::Node {
     base_frame_ = params.base_frame;
     tracking_timeout_ = params.tracking_timeout;
     min_hand_age_ = params.min_hand_age;
-    heartbeat_rate_ = params.heartbeat_rate;
-    engage_timeout_ = params.engage_timeout;
 
     frame_ = (params.rotation_frame == "tool") ? RotationFrame::kTool : RotationFrame::kWorld;
     delta_builder_ = std::make_unique<DeltaBuilder>(frame_);
@@ -78,7 +77,7 @@ class SupervisorNode : public rclcpp::Node {
         "state", rclcpp::QoS(rclcpp::KeepLast(1)));
 
     const auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::duration<double>(1.0 / heartbeat_rate_));
+        std::chrono::duration<double>(1.0 / timing::kHeartbeatRate));
     heartbeat_ = create_wall_timer(period, [this]() { publish_if_due(true); });
   }
 
@@ -96,7 +95,8 @@ class SupervisorNode : public rclcpp::Node {
 
   void publish_if_due(bool heartbeat) {
     const double time = now().seconds();
-    if (heartbeat && last_publish_ > 0.0 && time - last_publish_ < 1.0 / heartbeat_rate_) {
+    // Half a period: skip only a real duplicate, not a tick that fired early.
+    if (heartbeat && last_publish_ > 0.0 && time - last_publish_ < 0.5 / timing::kHeartbeatRate) {
       return;
     }
     last_publish_ = time;
@@ -127,7 +127,7 @@ class SupervisorNode : public rclcpp::Node {
 
     bool key_held = false;
     if (latest_deadman_ && latest_deadman_->engaged) {
-      key_held = (time - stamp_seconds(latest_deadman_->stamp)) <= engage_timeout_;
+      key_held = (time - stamp_seconds(latest_deadman_->stamp)) <= timing::kEngageTimeout;
     }
 
     FsmInputs inputs;
@@ -178,8 +178,6 @@ class SupervisorNode : public rclcpp::Node {
   RotationFrame frame_ = RotationFrame::kWorld;
   double tracking_timeout_ = 0.15;
   double min_hand_age_ = 0.2;
-  double heartbeat_rate_ = 20.0;
-  double engage_timeout_ = 0.15;
   double last_publish_ = 0.0;
   double last_hand_time_ = 0.0;
   double hand_first_seen_ = 0.0;

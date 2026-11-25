@@ -7,11 +7,7 @@
 # Parameters marked "Dynamic" accept ros2 param set while the node runs. All others are
 # read-only at runtime and require a restart; use ros2 param describe to see which is which.
 #
-# Cross-node requirements, documented here but enforced by no single node:
-#   supervisor.heartbeat_rate  >  1 / bridge.command_timeout
-#   supervisor.engage_timeout  >= 3 / deadman.publish_rate
-#   bridge.command_timeout     <= Servo's incoming_command_timeout (default 0.1 s)
-#   tracker.yaw must match the orientation of supervisor.base_frame
+# tracker.yaw must match the orientation of supervisor.base_frame.
 
 leap_tracker:
   ros__parameters:
@@ -51,8 +47,6 @@ leap_teleop_deadman:
     key: space
     # Keyboard event device path, or empty to auto-detect. String.
     device: ""
-    # Deadman broadcast rate, Hz, range [5, 100]. At least 3 periods per engage_timeout.
-    publish_rate: 20.0
 
 leap_teleop_supervisor:
   ros__parameters:
@@ -67,10 +61,6 @@ leap_teleop_supervisor:
     min_hand_age: 0.2
     # Time in HOLD before IDLE, seconds, range [0, 60]. 0 keeps HOLD.
     hold_timeout: 2.0
-    # Minimum TeleopDelta rate, Hz, range [5, 100]. Must exceed 1 / command_timeout.
-    heartbeat_rate: 20.0
-    # Validity of a deadman message, seconds, range (0, 1]. At least 3 / publish_rate.
-    engage_timeout: 0.15
 
 leap_moveit_servo_bridge:
   ros__parameters:
@@ -90,10 +80,9 @@ leap_moveit_servo_bridge:
     # Hard cap on angular velocity, rad/s, range (0, 3]. Dynamic.
     max_angular_velocity: 0.5
 
-    # Time without a fresh delta, seconds, range (0, 1]. At or below Servo's timeout.
-    command_timeout: 0.09
     # Control tick period, seconds, range (0, 0.1].
     publish_period: 0.01
 
-    # dry_run is launch-only: read-only at runtime and deliberately absent from this file.
+    # Log commands instead of publishing them. Always overridden by the launch argument:
     # ros2 launch leap_teleop_bringup teleop.launch.py dry_run:=false
+    dry_run: true

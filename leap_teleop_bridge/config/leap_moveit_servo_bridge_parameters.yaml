@@ -58,14 +58,6 @@ leap_moveit_servo_bridge:
     validation:
       gt<>: [0.0]
       lt_eq<>: [3.0]
-  command_timeout:
-    type: double
-    default_value: 0.09
-    description: "Time without a fresh TeleopDelta before publication stops, in seconds."
-    read_only: true
-    validation:
-      gt<>: [0.0]
-      lt_eq<>: [1.0]
   publish_period:
     type: double
     default_value: 0.01

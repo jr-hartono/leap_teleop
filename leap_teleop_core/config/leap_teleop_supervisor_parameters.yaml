@@ -40,18 +40,3 @@ leap_teleop_supervisor:
     read_only: true
     validation:
       bounds<>: [0.0, 60.0]
-  heartbeat_rate:
-    type: double
-    default_value: 20.0
-    description: "Minimum TeleopDelta publication rate in Hz."
-    read_only: true
-    validation:
-      bounds<>: [5.0, 100.0]
-  engage_timeout:
-    type: double
-    default_value: 0.15
-    description: "Validity of a single DeadmanState message, in seconds."
-    read_only: true
-    validation:
-      gt<>: [0.0]
-      lt_eq<>: [1.0]

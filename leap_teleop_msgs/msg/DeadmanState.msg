@@ -1,5 +1,5 @@
 # Deadman key state, published by leap_teleop_deadman.
-# Each message is valid for supervisor.engage_timeout.
+# Each message counts as held for timing::kEngageTimeout in leap_teleop_core.
 
 # Time of the key state read, on the ROS clock.
 builtin_interfaces/Time stamp
