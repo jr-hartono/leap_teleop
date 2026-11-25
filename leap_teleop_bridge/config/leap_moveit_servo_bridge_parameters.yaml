@@ -1,35 +1,31 @@
-# Parameter definition for leap_moveit_servo_bridge.
-# Types, defaults and constraints here are enforced by the generated ParamListener.
-# The human-facing values and units live in leap_teleop_bringup/config/example_arm.yaml.
-# read_only parameters can only be set at startup; the others accept ros2 param set.
-# dry_run is read_only and is set by the launch argument, never by ros2 param set.
+# Parameters of leap_moveit_servo_bridge, enforced by the generated ParamListener.
 
 leap_moveit_servo_bridge:
   tool_frame:
     type: string
     default_value: tool0
-    description: "Frame of the rotation pivot."
+    description: "TF frame of the TCP. Rotations pivot about it."
     read_only: true
     validation:
       not_empty<>: []
   planning_frame:
     type: string
     default_value: base_link
-    description: "Frame in which MoveIt Servo expects twists."
+    description: "TF frame Servo expects twists in."
     read_only: true
     validation:
       not_empty<>: []
   cartesian_command_topic:
     type: string
     default_value: "/servo_node/delta_twist_cmds"
-    description: "Servo's cartesian command topic."
+    description: "Servo's cartesian_command_in_topic."
     read_only: true
     validation:
       not_empty<>: []
   kp_linear:
     type: double
     default_value: 4.0
-    description: "Proportional gain from translation error to twist, in 1/s. Dynamic; can be changed with ros2 param set."
+    description: "Gain for linear error, in 1/s."
     read_only: false
     validation:
       gt<>: [0.0]
@@ -37,7 +33,7 @@ leap_moveit_servo_bridge:
   kp_angular:
     type: double
     default_value: 4.0
-    description: "Proportional gain from rotation error to twist, in 1/s. Dynamic; can be changed with ros2 param set."
+    description: "Gain for angular error, in 1/s."
     read_only: false
     validation:
       gt<>: [0.0]
@@ -45,7 +41,7 @@ leap_moveit_servo_bridge:
   max_linear_velocity:
     type: double
     default_value: 0.2
-    description: "Hard cap on commanded linear velocity, in m/s. Dynamic; can be changed with ros2 param set."
+    description: "Linear velocity cap, in m/s."
     read_only: false
     validation:
       gt<>: [0.0]
@@ -53,7 +49,7 @@ leap_moveit_servo_bridge:
   max_angular_velocity:
     type: double
     default_value: 0.5
-    description: "Hard cap on commanded angular velocity, in rad/s. Dynamic; can be changed with ros2 param set."
+    description: "Angular velocity cap, in rad/s."
     read_only: false
     validation:
       gt<>: [0.0]
@@ -61,7 +57,7 @@ leap_moveit_servo_bridge:
   publish_period:
     type: double
     default_value: 0.01
-    description: "Control tick period, in seconds."
+    description: "Time between twists, in seconds."
     read_only: true
     validation:
       gt<>: [0.0]
@@ -69,5 +65,5 @@ leap_moveit_servo_bridge:
   dry_run:
     type: bool
     default_value: true
-    description: "Log commands without publishing; set by the launch argument."
+    description: "Log commands instead of publishing them. Overridden by the launch argument dry_run."
     read_only: true

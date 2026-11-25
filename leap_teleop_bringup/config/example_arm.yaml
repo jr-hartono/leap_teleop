@@ -1,88 +1,75 @@
-# leap_teleop example configuration.
-#
-# Every value below is an example and also the declared default. Change it for your robot.
-# Types, constraints and defaults come from the parameter definition files in each node
-# package; CI checks this file with generate_parameter_library_validate --strict.
-# Ranges: [a, b] inclusive, (a, b] or [a, b) exclusive at one end.
-# Parameters marked "Dynamic" accept ros2 param set while the node runs. All others are
-# read-only at runtime and require a restart; use ros2 param describe to see which is which.
-#
-# tracker.yaw must match the orientation of supervisor.base_frame.
+# Example configuration. Every value is the default; copy the file and change it for your robot.
+# (dynamic) marks parameters that can be changed at runtime.
 
 leap_tracker:
   ros__parameters:
-    # Device mount relative to the operator. Choices: desktop | head_mounted.
+    # Device mounting mode. Currently only `desktop` is implemented.
     mount_mode: desktop
-    # Hand used for teleoperation. Choices: right | left.
+    # Hand used for teleoperation: right | left.
     side: right
-
-    # Yaw from device forward axis to robot +x, degrees, range [-180, 180].
+    # Yaw from device forward axis to robot's +x, in degrees.
     yaw: 0.0
 
-    # Hand-to-tool travel scale, unitless, range (0, 10]. Dynamic.
+    # Hand-to-tool translation ratio. (dynamic)
     translation_scale: 1.0
-    # Hand-to-tool rotation scale, unitless, range (0, 10]. Dynamic.
+    # Hand-to-tool rotation ratio. (dynamic)
     rotation_scale: 1.0
 
-    # Hand travel ignored before motion starts, metres, range [0, 0.05]. Dynamic.
+    # Hand travel ignored at rest, in meters. (dynamic)
     deadband_translation: 0.002
-    # Hand rotation ignored before motion starts, degrees, range [0, 5]. Dynamic.
+    # Hand rotation ignored at rest, in degrees. (dynamic)
     deadband_rotation: 0.5
-    # Multiplier needed to leave the deadband, unitless, range [1, 4]. Dynamic.
+    # Factor needed to leave the deadband. (dynamic)
     deadband_hysteresis: 1.5
 
-    # One-Euro cutoff at rest, Hz, range (0, 100]. Lower is smoother and laggier. Dynamic.
+    # One-Euro filter cutoff at rest, in Hz. Lower is smoother but laggier. (dynamic)
     filter_min_cutoff: 1.0
-    # One-Euro speed coefficient, unitless, range [0, 1]. Higher follows fast motion. Dynamic.
+    # One-Euro filter speed coefficient. Higher follows fast motion better. (dynamic)
     filter_beta: 0.05
 
 leap_teleop_deadman:
   ros__parameters:
-    # Key held to authorise motion. Write the evdev name in lowercase with the KEY_ prefix
-    # removed: KEY_RIGHTCTRL -> rightctrl, KEY_SPACE -> space, KEY_F1 -> f1. Letters a-z and
-    # digits 0-9 are written as themselves. Only names in build_key_map() in
-    # leap_teleop_core/src/keyboard_deadman.cpp are accepted; an unknown name stops startup.
-    # Full KEY_* list:
-    # https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
+    # Key to authorize motion: a-z, 0-9, f1-f12, space, enter, tab, esc, backspace, delete,
+    # insert, home, end, pageup, pagedown, up, down, left, right, capslock, and left or right
+    # ctrl, shift, alt, meta (for example leftctrl).
     key: space
-    # Keyboard event device path, or empty to auto-detect. String.
+    # Keyboard event device path, /dev/input/by-id/...-event-kbd. Empty picks the first keyboard.
     device: ""
 
 leap_teleop_supervisor:
   ros__parameters:
-    # Frame for TeleopDelta and the bridge's tool-pose latch. TF frame, non-empty.
+    # TF frame of the deltas. yaw is relative to it.
     base_frame: base_link
-    # Rotation delta composition order. Choices: world | tool.
+    # Frame the rotation delta is composed in: world | tool.
     rotation_frame: world
 
-    # Maximum age of a hand pose, seconds, range (0, 1]. Older poses force HOLD.
+    # Age after which a hand pose counts as lost, in seconds.
     tracking_timeout: 0.15
-    # Continuous tracking before latch, seconds, range [0, 5]. 0 disables.
+    # Continuous tracking needed before engaging, in seconds. 0 disables.
     min_hand_age: 0.2
-    # Time in HOLD before IDLE, seconds, range [0, 60]. 0 keeps HOLD.
+    # Time in hold before idle, in seconds. 0 stays in hold.
     hold_timeout: 2.0
 
 leap_moveit_servo_bridge:
   ros__parameters:
-    # Rotation pivot, TF frame, non-empty, may differ from the IK link.
+    # TF frame of the TCP. Rotations pivot about it.
     tool_frame: tool0
-    # Frame for Servo twists, TF frame, non-empty.
+    # TF frame Servo expects twists in.
     planning_frame: base_link
-    # Servo cartesian input, topic, non-empty, must match cartesian_command_in_topic.
+    # Servo's cartesian_command_in_topic.
     cartesian_command_topic: /servo_node/delta_twist_cmds
 
-    # Translation pose-error gain, 1/s, range (0, 50]. Saturates at the velocity cap. Dynamic.
+    # Gain for linear error, in 1/s. (dynamic)
     kp_linear: 4.0
-    # Rotation pose-error gain, 1/s, range (0, 50]. Saturates at the velocity cap. Dynamic.
+    # Gain for angular error, in 1/s. (dynamic)
     kp_angular: 4.0
-    # Hard cap on linear velocity, m/s, range (0, 2]. Dynamic.
+    # Linear velocity cap, in m/s. (dynamic)
     max_linear_velocity: 0.2
-    # Hard cap on angular velocity, rad/s, range (0, 3]. Dynamic.
+    # Angular velocity cap, in rad/s. (dynamic)
     max_angular_velocity: 0.5
 
-    # Control tick period, seconds, range (0, 0.1].
+    # Time between twists, in seconds.
     publish_period: 0.01
 
-    # Log commands instead of publishing them. Always overridden by the launch argument:
-    # ros2 launch leap_teleop_bringup teleop.launch.py dry_run:=false
+    # Log commands instead of publishing them. Overridden by the launch argument dry_run.
     dry_run: true

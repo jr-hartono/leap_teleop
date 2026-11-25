@@ -1,34 +1,31 @@
-# Parameter definition for leap_tracker.
-# Types, defaults and constraints here are enforced by the generated ParamListener.
-# The human-facing values and units live in leap_teleop_bringup/config/example_arm.yaml.
-# read_only parameters can only be set at startup; the others accept ros2 param set.
+# Parameters of leap_tracker, enforced by the generated ParamListener.
 
 leap_tracker:
   mount_mode:
     type: string
     default_value: desktop
-    description: "Device mount; only desktop is implemented."
+    description: "Device mounting mode. Currently only `desktop` is implemented."
     read_only: true
     validation:
-      one_of<>: [["desktop", "head_mounted"]]
+      one_of<>: [["desktop"]]
   side:
     type: string
     default_value: right
-    description: "Hand used for teleoperation."
+    description: "Hand used for teleoperation: right | left."
     read_only: true
     validation:
       one_of<>: [["right", "left"]]
   yaw:
     type: double
     default_value: 0.0
-    description: "Yaw from device forward axis to robot +x, in degrees."
+    description: "Yaw from device forward axis to robot's +x, in degrees."
     read_only: true
     validation:
       bounds<>: [-180.0, 180.0]
   translation_scale:
     type: double
     default_value: 1.0
-    description: "Hand-to-tool translation scale, unitless. Dynamic; can be changed with ros2 param set."
+    description: "Hand-to-tool translation ratio."
     read_only: false
     validation:
       gt<>: [0.0]
@@ -36,7 +33,7 @@ leap_tracker:
   rotation_scale:
     type: double
     default_value: 1.0
-    description: "Hand-to-tool rotation scale, unitless. Dynamic; can be changed with ros2 param set."
+    description: "Hand-to-tool rotation ratio."
     read_only: false
     validation:
       gt<>: [0.0]
@@ -44,28 +41,28 @@ leap_tracker:
   deadband_translation:
     type: double
     default_value: 0.002
-    description: "Translation deadband in metres. Dynamic; can be changed with ros2 param set."
+    description: "Hand travel ignored at rest, in meters."
     read_only: false
     validation:
       bounds<>: [0.0, 0.05]
   deadband_rotation:
     type: double
     default_value: 0.5
-    description: "Rotation deadband in degrees. Dynamic; can be changed with ros2 param set."
+    description: "Hand rotation ignored at rest, in degrees."
     read_only: false
     validation:
       bounds<>: [0.0, 5.0]
   deadband_hysteresis:
     type: double
     default_value: 1.5
-    description: "Multiplier applied to the deadband to leave it. Dynamic; can be changed with ros2 param set."
+    description: "Factor needed to leave the deadband."
     read_only: false
     validation:
       bounds<>: [1.0, 4.0]
   filter_min_cutoff:
     type: double
     default_value: 1.0
-    description: "One-Euro minimum cutoff in Hz. Dynamic; can be changed with ros2 param set."
+    description: "One-Euro filter cutoff at rest, in Hz. Lower is smoother but laggier."
     read_only: false
     validation:
       gt<>: [0.0]
@@ -73,7 +70,7 @@ leap_tracker:
   filter_beta:
     type: double
     default_value: 0.05
-    description: "One-Euro speed coefficient, unitless. Dynamic; can be changed with ros2 param set."
+    description: "One-Euro filter speed coefficient. Higher follows fast motion better."
     read_only: false
     validation:
       bounds<>: [0.0, 1.0]

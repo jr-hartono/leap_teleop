@@ -1,27 +1,24 @@
-# Parameter definition for leap_teleop_supervisor.
-# Types, defaults and constraints here are enforced by the generated ParamListener.
-# The human-facing values and units live in leap_teleop_bringup/config/example_arm.yaml.
-# All supervisor parameters are read_only; changing one requires a restart.
+# Parameters of leap_teleop_supervisor, enforced by the generated ParamListener.
 
 leap_teleop_supervisor:
   base_frame:
     type: string
     default_value: base_link
-    description: "Frame of TeleopDelta; bridges latch the tool pose in this frame."
+    description: "TF frame of the deltas. yaw is relative to it."
     read_only: true
     validation:
       not_empty<>: []
   rotation_frame:
     type: string
     default_value: world
-    description: "Composition order for the hand rotation delta."
+    description: "Frame the rotation delta is composed in: world | tool."
     read_only: true
     validation:
       one_of<>: [["world", "tool"]]
   tracking_timeout:
     type: double
     default_value: 0.15
-    description: "Maximum age of a hand pose in seconds."
+    description: "Age after which a hand pose counts as lost, in seconds."
     read_only: true
     validation:
       gt<>: [0.0]
@@ -29,14 +26,14 @@ leap_teleop_supervisor:
   min_hand_age:
     type: double
     default_value: 0.2
-    description: "Continuous tracking required before latch, in seconds."
+    description: "Continuous tracking needed before engaging, in seconds. 0 disables."
     read_only: true
     validation:
       bounds<>: [0.0, 5.0]
   hold_timeout:
     type: double
     default_value: 2.0
-    description: "Time in HOLD before falling back to IDLE, in seconds; 0 disables."
+    description: "Time in hold before idle, in seconds. 0 stays in hold."
     read_only: true
     validation:
       bounds<>: [0.0, 60.0]

@@ -1,18 +1,15 @@
-# Parameter definition for leap_teleop_deadman.
-# Types, defaults and constraints here are enforced by the generated ParamListener.
-# The human-facing values and units live in leap_teleop_bringup/config/example_arm.yaml.
-# All deadman parameters are read_only; changing one requires a restart.
+# Parameters of leap_teleop_deadman, enforced by the generated ParamListener.
 
 leap_teleop_deadman:
   key:
     type: string
     default_value: space
-    description: "evdev key name in lowercase without KEY_, e.g. rightctrl for KEY_RIGHTCTRL; only names in build_key_map() are accepted. KEY_* list: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h"
+    description: "Key to authorize motion: a-z, 0-9, f1-f12, space, enter, tab, esc, backspace, delete, insert, home, end, pageup, pagedown, up, down, left, right, capslock, and left or right ctrl, shift, alt, meta (for example leftctrl)."
     read_only: true
     validation:
       not_empty<>: []
   device:
     type: string
     default_value: ""
-    description: "Keyboard event device path; empty selects the first keyboard found."
+    description: "Keyboard event device path, /dev/input/by-id/...-event-kbd. Empty picks the first keyboard."
     read_only: true
