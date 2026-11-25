@@ -14,12 +14,14 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # No LeapSDK or MoveIt here: leap_tracker is skipped and the bridge needs Servo only at runtime.
       - name: Install ROS dependencies
         run: |
           set -e
+          sudo apt-get update
+          sudo apt-get install -y python3-venv
           sudo rosdep update
           sudo rosdep install --from-paths . --ignore-src --rosdistro jazzy -y
 
@@ -28,7 +30,7 @@ jobs:
         run: |
           set -e
           python3 -m venv /tmp/gpl-validate
-          /tmp/gpl-validate/bin/pip install --no-deps \
+          /tmp/gpl-validate/bin/pip install \
             "git+https://github.com/ros-tooling/generate_parameter_library.git@3de05171627222370af8e760a3a6c3adc9dde54a#subdirectory=generate_parameter_library_py"
           env -u PYTHONPATH -u AMENT_PREFIX_PATH \
             /tmp/gpl-validate/bin/generate_parameter_library_validate \
