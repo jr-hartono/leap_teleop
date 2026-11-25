@@ -31,12 +31,31 @@ colcon test-result --verbose
 ## Parameters
 
 Each node has a parameter definition file under its package's `config/` directory. It
-declares every parameter's type, default, description and validation rule. The build
-generates a `ParamListener` from it, so the same rules apply at startup and on dynamic
-updates. Values outside a rule make the node refuse to start.
+declares every parameter's type, default, description, validation rule and `read_only` flag.
+The build generates a `ParamListener` from it, so the same rules apply at startup and on
+dynamic updates. Values outside a rule make the node refuse to start.
+
+`read_only: true` means the parameter can be set at startup, for example from the params
+file or a launch argument, but `ros2 param set` rejects it later. All deadman and
+supervisor parameters are read-only, as are the tracker's mount parameters and the bridge's
+frame, topic and timing parameters. `dry_run` is read-only so it can only come from the
+launch argument.
+
+The remaining parameters are dynamic and accept `ros2 param set` while the node runs:
+
+- tracker: `translation_scale`, `rotation_scale`, `deadband_translation`,
+  `deadband_rotation`, `deadband_hysteresis`, `filter_min_cutoff`, `filter_beta`
+- bridge: `kp_linear`, `kp_angular`, `max_linear_velocity`, `max_angular_velocity`
+
+Tracker tuning keeps the filter and deadband state, so a gain change does not produce a
+pose step. The tracker and bridge log each applied change at INFO with its old and new
+value. Read-only set attempts are rejected by ROS and reported to the caller. Use
+`ros2 param describe /leap_teleop/leap_tracker translation_scale` to see a parameter's
+description and read-only flag.
 
 `leap_teleop_bringup/config/example_arm.yaml` is the human-facing configuration; its comments
-label choices, ranges and units, and every value shown is both the default and an example.
+label choices, ranges, units and dynamic parameters, and every value shown is both the
+default and an example.
 CI checks that file against all four definitions with
 `generate_parameter_library_validate --strict`. To run the same check locally, install the
 validator from the `generate_parameter_library` Python package and run:

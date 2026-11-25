@@ -49,8 +49,8 @@ Eigen::Vector3d clamp_norm(const Eigen::Vector3d& value, double maximum) {
 class MoveItServoBridge : public rclcpp::Node {
  public:
   MoveItServoBridge() : rclcpp::Node("leap_moveit_servo_bridge") {
-    auto param_listener = std::make_shared<leap_moveit_servo_bridge::ParamListener>(this);
-    const auto params = param_listener->get_params();
+    param_listener_ = std::make_shared<leap_moveit_servo_bridge::ParamListener>(this);
+    const auto params = param_listener_->get_params();
     tool_frame_ = params.tool_frame;
     planning_frame_ = params.planning_frame;
     const std::string topic = params.cartesian_command_topic;
@@ -61,6 +61,24 @@ class MoveItServoBridge : public rclcpp::Node {
     command_timeout_ = params.command_timeout;
     publish_period_ = params.publish_period;
     dry_run_ = params.dry_run;
+
+    // The single-threaded executor cannot run this callback and on_tick() at the same time.
+    param_listener_->setUserCallback([this](const leap_moveit_servo_bridge::Params& updated) {
+      const auto log_change = [this](const char* name, double before, double after) {
+        if (before != after) {
+          RCLCPP_INFO(get_logger(), "parameter '%s' changed: %g -> %g", name, before, after);
+        }
+      };
+      log_change("kp_linear", kp_linear_, updated.kp_linear);
+      log_change("kp_angular", kp_angular_, updated.kp_angular);
+      log_change("max_linear_velocity", max_linear_velocity_, updated.max_linear_velocity);
+      log_change("max_angular_velocity", max_angular_velocity_, updated.max_angular_velocity);
+
+      kp_linear_ = updated.kp_linear;
+      kp_angular_ = updated.kp_angular;
+      max_linear_velocity_ = updated.max_linear_velocity;
+      max_angular_velocity_ = updated.max_angular_velocity;
+    });
 
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -191,6 +209,7 @@ class MoveItServoBridge : public rclcpp::Node {
     command_publisher_->publish(command);
   }
 
+  std::shared_ptr<leap_moveit_servo_bridge::ParamListener> param_listener_;
   std::string tool_frame_;
   std::string planning_frame_;
   std::string latched_frame_;

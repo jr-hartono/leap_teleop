@@ -1,21 +1,25 @@
 # Parameter definition for leap_teleop_deadman.
 # Types, defaults and constraints here are enforced by the generated ParamListener.
 # The human-facing values and units live in leap_teleop_bringup/config/example_arm.yaml.
+# All deadman parameters are read_only; changing one requires a restart.
 
 leap_teleop_deadman:
   key:
     type: string
     default_value: space
     description: "evdev key name in lowercase without KEY_, e.g. rightctrl for KEY_RIGHTCTRL; only names in build_key_map() are accepted. KEY_* list: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h"
+    read_only: true
     validation:
       not_empty<>: []
   device:
     type: string
     default_value: ""
     description: "Keyboard event device path; empty selects the first keyboard found."
+    read_only: true
   publish_rate:
     type: double
     default_value: 20.0
     description: "Rate at which the key state is broadcast, in Hz."
+    read_only: true
     validation:
       bounds<>: [5.0, 100.0]

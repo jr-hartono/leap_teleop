@@ -12,6 +12,7 @@ class OneEuroFilter {
   OneEuroFilter(double min_cutoff_hz, double beta, double derivative_cutoff_hz = 1.0);
 
   double filter(double value, double time_sec);
+  void set_parameters(double min_cutoff_hz, double beta);
   void reset();
 
  private:
@@ -31,6 +32,7 @@ class OrientationFilter {
   explicit OrientationFilter(double min_cutoff_hz);
 
   Eigen::Quaterniond filter(const Eigen::Quaterniond& value, double time_sec);
+  void set_min_cutoff(double min_cutoff_hz);
   void reset();
 
  private:
@@ -45,6 +47,7 @@ class TranslationDeadband {
   TranslationDeadband(double threshold_m, double hysteresis);
 
   Eigen::Vector3d filter(const Eigen::Vector3d& value, double time_sec);
+  void set_parameters(double threshold_m, double hysteresis);
   void reset();
 
  private:
@@ -63,6 +66,7 @@ class RotationDeadband {
   RotationDeadband(double threshold_rad, double hysteresis);
 
   Eigen::Quaterniond filter(const Eigen::Quaterniond& value, double time_sec);
+  void set_parameters(double threshold_rad, double hysteresis);
   void reset();
 
  private:

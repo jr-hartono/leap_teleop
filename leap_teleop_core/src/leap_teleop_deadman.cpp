@@ -16,8 +16,8 @@ namespace leap_teleop {
 class DeadmanNode : public rclcpp::Node {
  public:
   DeadmanNode() : rclcpp::Node("leap_teleop_deadman") {
-    auto param_listener = std::make_shared<leap_teleop_deadman::ParamListener>(this);
-    const auto params = param_listener->get_params();
+    param_listener_ = std::make_shared<leap_teleop_deadman::ParamListener>(this);
+    const auto params = param_listener_->get_params();
     const int key_code = key_code_from_name(params.key);
     const std::string configured_device = params.device;
     publish_rate_ = params.publish_rate;
@@ -70,6 +70,7 @@ class DeadmanNode : public rclcpp::Node {
     publisher_->publish(message);
   }
 
+  std::shared_ptr<leap_teleop_deadman::ParamListener> param_listener_;
   double publish_rate_ = 20.0;
   bool loss_reported_ = false;
   std::unique_ptr<KeyboardDeadman> deadman_;

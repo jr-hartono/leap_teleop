@@ -8,8 +8,8 @@ using leap_teleop::degrees_to_radians;
 using leap_teleop::HandMapper;
 using leap_teleop::HandMapperConfig;
 using leap_teleop::HandPoseInput;
-using leap_teleop::rotation_angle;
 using leap_teleop::point_from_msg;
+using leap_teleop::rotation_angle;
 
 namespace {
 
@@ -63,6 +63,53 @@ TEST(HandMapper, TranslationGainScalesTheHandMotion) {
   input.time_sec = 0.0;
   EXPECT_TRUE(point_from_msg(mapper.update(input).position)
                   .isApprox(Eigen::Vector3d(0.1, 0.0, 0.0), 1e-12));
+}
+
+TEST(HandMapper, SetTuningAppliesNewScale) {
+  HandMapperConfig config = fast_config();
+  HandMapper mapper(config);
+  HandPoseInput input;
+  input.position_m = Eigen::Vector3d(0.0, 0.0, -0.1);
+  input.time_sec = 0.0;
+  EXPECT_NEAR(point_from_msg(mapper.update(input).position).x(), 0.1, 1e-12);
+
+  config.translation_scale = 0.5;
+  mapper.set_tuning(config);
+  input.time_sec = 0.01;
+  EXPECT_NEAR(point_from_msg(mapper.update(input).position).x(), 0.05, 1e-12);
+}
+
+TEST(HandMapper, SetTuningKeepsFilterState) {
+  HandMapperConfig config = fast_config();
+  HandMapper mapper(config);
+  HandPoseInput input;
+  input.position_m = Eigen::Vector3d(0.0, 0.0, -0.1);
+  input.time_sec = 0.0;
+  EXPECT_NEAR(point_from_msg(mapper.update(input).position).x(), 0.1, 1e-12);
+
+  config.filter_min_cutoff_hz = 1.0;
+  config.translation_scale = 0.5;
+  mapper.set_tuning(config);
+  input.position_m = Eigen::Vector3d(0.0, 0.0, -0.2);
+  input.time_sec = 0.01;
+  const double x = point_from_msg(mapper.update(input).position).x();
+  EXPECT_GT(x, 0.05);
+  EXPECT_LT(x, 0.1);
+}
+
+TEST(HandMapper, SetTuningDoesNotChangeYaw) {
+  HandMapperConfig config = fast_config();
+  config.yaw_deg = 180.0;
+  HandMapper mapper(config);
+
+  HandMapperConfig update = fast_config();
+  update.translation_scale = 2.0;
+  mapper.set_tuning(update);
+
+  HandPoseInput input;
+  input.position_m = Eigen::Vector3d(0.0, 0.0, -0.1);
+  input.time_sec = 0.0;
+  EXPECT_NEAR(point_from_msg(mapper.update(input).position).x(), -0.2, 1e-12);
 }
 
 TEST(HandMapper, RotationGainScalesTheWristMotion) {

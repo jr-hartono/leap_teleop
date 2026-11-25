@@ -14,8 +14,8 @@
 #include "leap_teleop_core/supervisor_fsm.hpp"
 #include "leap_teleop_msgs/msg/deadman_state.hpp"
 #include "leap_teleop_msgs/msg/hand_pose.hpp"
-#include "leap_teleop_msgs/msg/teleop_state.hpp"
 #include "leap_teleop_msgs/msg/teleop_delta.hpp"
+#include "leap_teleop_msgs/msg/teleop_state.hpp"
 
 namespace leap_teleop {
 
@@ -49,8 +49,8 @@ std::string state_token(State state) {
 class SupervisorNode : public rclcpp::Node {
  public:
   SupervisorNode() : rclcpp::Node("leap_teleop_supervisor") {
-    auto param_listener = std::make_shared<leap_teleop_supervisor::ParamListener>(this);
-    const auto params = param_listener->get_params();
+    param_listener_ = std::make_shared<leap_teleop_supervisor::ParamListener>(this);
+    const auto params = param_listener_->get_params();
     base_frame_ = params.base_frame;
     tracking_timeout_ = params.tracking_timeout;
     min_hand_age_ = params.min_hand_age;
@@ -173,6 +173,7 @@ class SupervisorNode : public rclcpp::Node {
     state_publisher_->publish(state);
   }
 
+  std::shared_ptr<leap_teleop_supervisor::ParamListener> param_listener_;
   std::string base_frame_;
   RotationFrame frame_ = RotationFrame::kWorld;
   double tracking_timeout_ = 0.15;

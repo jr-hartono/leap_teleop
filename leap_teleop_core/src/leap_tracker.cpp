@@ -73,6 +73,8 @@ class LeapTrackerNode : public rclcpp::Node {
   void stop();
 
  private:
+  void apply_tuning(const leap_tracker::Params& params);
+  void reset_mapper();
   void poll_loop();
   void handle_event(const LEAP_CONNECTION_MESSAGE& message);
   void publish_tracking(const LEAP_TRACKING_EVENT* frame);
@@ -82,7 +84,10 @@ class LeapTrackerNode : public rclcpp::Node {
   rclcpp::Publisher<HandArray>::SharedPtr hands_pub_;
   rclcpp::Publisher<HandPose>::SharedPtr target_pub_;
   rclcpp::TimerBase::SharedPtr idle_timer_;
+  std::shared_ptr<leap_tracker::ParamListener> param_listener_;
+  leap_tracker::Params current_params_;
   std::unique_ptr<HandMapper> mapper_;
+  std::mutex mapper_mutex_;
   std::unique_ptr<LeapConnection> connection_;
   std::unique_ptr<std::thread> poll_thread_;
 
@@ -92,8 +97,7 @@ class LeapTrackerNode : public rclcpp::Node {
   std::uint32_t sequence_ = 0;
 
   std::mutex state_mutex_;
-  const std::chrono::steady_clock::time_point start_time_ =
-      std::chrono::steady_clock::now();
+  const std::chrono::steady_clock::time_point start_time_ = std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point last_frame_time_{};
   bool missing_device_warned_ = false;
   bool missing_device_reported_ = false;
@@ -101,8 +105,9 @@ class LeapTrackerNode : public rclcpp::Node {
 
 LeapTrackerNode::LeapTrackerNode(const rclcpp::NodeOptions& options)
     : rclcpp::Node("leap_tracker", options) {
-  auto param_listener = std::make_shared<leap_tracker::ParamListener>(this);
-  const auto params = param_listener->get_params();
+  param_listener_ = std::make_shared<leap_tracker::ParamListener>(this);
+  const auto params = param_listener_->get_params();
+  current_params_ = params;
   if (params.mount_mode != "desktop") {
     throw std::invalid_argument(
         "parameter 'mount_mode': only 'desktop' is implemented; "
@@ -119,17 +124,54 @@ LeapTrackerNode::LeapTrackerNode(const rclcpp::NodeOptions& options)
   config.filter_min_cutoff_hz = params.filter_min_cutoff;
   config.filter_beta = params.filter_beta;
   mapper_ = std::make_unique<HandMapper>(config);
+  param_listener_->setUserCallback(
+      [this](const leap_tracker::Params& updated) { apply_tuning(updated); });
 
   target_side_ = (params.side == "left") ? Hand::LEFT : Hand::RIGHT;
 
   hands_pub_ = create_publisher<HandArray>(
       "hands", rclcpp::QoS(rclcpp::KeepLast(5)).best_effort().durability_volatile());
-  target_pub_ = create_publisher<HandPose>(
-      "hand_pose", rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
+  target_pub_ = create_publisher<HandPose>("hand_pose",
+                                           rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
 
   idle_timer_ = create_wall_timer(kIdlePeriod, [this]() { publish_idle(); });
 
   connection_ = std::make_unique<LeapConnection>();
+}
+
+void LeapTrackerNode::apply_tuning(const leap_tracker::Params& params) {
+  const auto log_change = [this](const char* name, double before, double after) {
+    if (before != after) {
+      RCLCPP_INFO(get_logger(), "parameter '%s' changed: %g -> %g", name, before, after);
+    }
+  };
+  log_change("translation_scale", current_params_.translation_scale, params.translation_scale);
+  log_change("rotation_scale", current_params_.rotation_scale, params.rotation_scale);
+  log_change("deadband_translation", current_params_.deadband_translation,
+             params.deadband_translation);
+  log_change("deadband_rotation", current_params_.deadband_rotation, params.deadband_rotation);
+  log_change("deadband_hysteresis", current_params_.deadband_hysteresis,
+             params.deadband_hysteresis);
+  log_change("filter_min_cutoff", current_params_.filter_min_cutoff, params.filter_min_cutoff);
+  log_change("filter_beta", current_params_.filter_beta, params.filter_beta);
+  current_params_ = params;
+
+  HandMapperConfig config;
+  config.translation_scale = params.translation_scale;
+  config.rotation_scale = params.rotation_scale;
+  config.deadband_translation_m = params.deadband_translation;
+  config.deadband_rotation_rad = degrees_to_radians(params.deadband_rotation);
+  config.deadband_hysteresis = params.deadband_hysteresis;
+  config.filter_min_cutoff_hz = params.filter_min_cutoff;
+  config.filter_beta = params.filter_beta;
+
+  std::lock_guard<std::mutex> lock(mapper_mutex_);
+  mapper_->set_tuning(config);
+}
+
+void LeapTrackerNode::reset_mapper() {
+  std::lock_guard<std::mutex> lock(mapper_mutex_);
+  mapper_->reset();
 }
 
 LeapTrackerNode::~LeapTrackerNode() { stop(); }
@@ -187,7 +229,7 @@ void LeapTrackerNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
     case eLeapEventType_ConnectionLost:
       RCLCPP_WARN(this->get_logger(), "tracking service connection lost");
       device_available_.store(false);
-      mapper_->reset();
+      reset_mapper();
       break;
 
     case eLeapEventType_Device:
@@ -201,13 +243,13 @@ void LeapTrackerNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
       RCLCPP_WARN(this->get_logger(), "device %u detached",
                   static_cast<unsigned int>(message.device_event->device.id));
       device_available_.store(false);
-      mapper_->reset();
+      reset_mapper();
       break;
 
     case eLeapEventType_DeviceFailure:
       RCLCPP_WARN(this->get_logger(), "device failure reported");
       device_available_.store(false);
-      mapper_->reset();
+      reset_mapper();
       break;
 
     case eLeapEventType_TrackingMode:
@@ -286,10 +328,13 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
     target.header.stamp = stamp;
     target.header.frame_id = kHandFrame;
     target.side = target_side_;
-    target.pose = mapper_->update(input);
+    {
+      std::lock_guard<std::mutex> lock(mapper_mutex_);
+      target.pose = mapper_->update(input);
+    }
     target.sequence = ++sequence_;
   } else {
-    mapper_->reset();
+    reset_mapper();
   }
 
   {
@@ -308,8 +353,7 @@ void LeapTrackerNode::publish_idle() {
   std::lock_guard<std::mutex> lock(state_mutex_);
   const auto now_steady = std::chrono::steady_clock::now();
   const auto without_device = now_steady - start_time_;
-  if (!device_available_.load() && without_device >= kDeviceWarnDelay &&
-      !missing_device_warned_) {
+  if (!device_available_.load() && without_device >= kDeviceWarnDelay && !missing_device_warned_) {
     RCLCPP_WARN(get_logger(),
                 "no Leap device detected for %.1f s; check the USB connection and leapd service",
                 std::chrono::duration<double>(without_device).count());
@@ -317,8 +361,7 @@ void LeapTrackerNode::publish_idle() {
   }
   if (!device_available_.load() && without_device >= kDeviceErrorDelay &&
       !missing_device_reported_) {
-    RCLCPP_ERROR(get_logger(),
-                 "no Leap device detected for %.1f s; tracking stays unavailable",
+    RCLCPP_ERROR(get_logger(), "no Leap device detected for %.1f s; tracking stays unavailable",
                  std::chrono::duration<double>(without_device).count());
     missing_device_reported_ = true;
   }

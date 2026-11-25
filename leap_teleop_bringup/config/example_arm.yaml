@@ -4,6 +4,8 @@
 # Types, constraints and defaults come from the parameter definition files in each node
 # package; CI checks this file with generate_parameter_library_validate --strict.
 # Ranges: [a, b] inclusive, (a, b] or [a, b) exclusive at one end.
+# Parameters marked "Dynamic" accept ros2 param set while the node runs. All others are
+# read-only at runtime and require a restart; use ros2 param describe to see which is which.
 #
 # Cross-node requirements, documented here but enforced by no single node:
 #   supervisor.heartbeat_rate  >  1 / bridge.command_timeout
@@ -21,21 +23,21 @@ leap_tracker:
     # Yaw from device forward axis to robot +x, degrees, range [-180, 180].
     yaw: 0.0
 
-    # Hand-to-tool travel scale, unitless, range (0, 10].
+    # Hand-to-tool travel scale, unitless, range (0, 10]. Dynamic.
     translation_scale: 1.0
-    # Hand-to-tool rotation scale, unitless, range (0, 10].
+    # Hand-to-tool rotation scale, unitless, range (0, 10]. Dynamic.
     rotation_scale: 1.0
 
-    # Hand travel ignored before motion starts, metres, range [0, 0.05].
+    # Hand travel ignored before motion starts, metres, range [0, 0.05]. Dynamic.
     deadband_translation: 0.002
-    # Hand rotation ignored before motion starts, degrees, range [0, 5].
+    # Hand rotation ignored before motion starts, degrees, range [0, 5]. Dynamic.
     deadband_rotation: 0.5
-    # Multiplier needed to leave the deadband, unitless, range [1, 4].
+    # Multiplier needed to leave the deadband, unitless, range [1, 4]. Dynamic.
     deadband_hysteresis: 1.5
 
-    # One-Euro cutoff at rest, Hz, range (0, 100]. Lower is smoother and laggier.
+    # One-Euro cutoff at rest, Hz, range (0, 100]. Lower is smoother and laggier. Dynamic.
     filter_min_cutoff: 1.0
-    # One-Euro speed coefficient, unitless, range [0, 1]. Higher follows fast motion.
+    # One-Euro speed coefficient, unitless, range [0, 1]. Higher follows fast motion. Dynamic.
     filter_beta: 0.05
 
 leap_teleop_deadman:
@@ -79,13 +81,13 @@ leap_moveit_servo_bridge:
     # Servo cartesian input, topic, non-empty, must match cartesian_command_in_topic.
     cartesian_command_topic: /servo_node/delta_twist_cmds
 
-    # Translation pose-error gain, 1/s, range (0, 50]. Saturates at the velocity cap.
+    # Translation pose-error gain, 1/s, range (0, 50]. Saturates at the velocity cap. Dynamic.
     kp_linear: 4.0
-    # Rotation pose-error gain, 1/s, range (0, 50]. Saturates at the velocity cap.
+    # Rotation pose-error gain, 1/s, range (0, 50]. Saturates at the velocity cap. Dynamic.
     kp_angular: 4.0
-    # Hard cap on linear velocity, m/s, range (0, 2].
+    # Hard cap on linear velocity, m/s, range (0, 2]. Dynamic.
     max_linear_velocity: 0.2
-    # Hard cap on angular velocity, rad/s, range (0, 3].
+    # Hard cap on angular velocity, rad/s, range (0, 3]. Dynamic.
     max_angular_velocity: 0.5
 
     # Time without a fresh delta, seconds, range (0, 1]. At or below Servo's timeout.
@@ -93,5 +95,5 @@ leap_moveit_servo_bridge:
     # Control tick period, seconds, range (0, 0.1].
     publish_period: 0.01
 
-    # dry_run is launch-only and deliberately absent from this file:
+    # dry_run is launch-only: read-only at runtime and deliberately absent from this file.
     # ros2 launch leap_teleop_bringup teleop.launch.py dry_run:=false

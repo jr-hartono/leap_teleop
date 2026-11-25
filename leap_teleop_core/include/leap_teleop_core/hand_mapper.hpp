@@ -33,6 +33,8 @@ class HandMapper {
   explicit HandMapper(const HandMapperConfig& config);
 
   geometry_msgs::msg::Pose update(const HandPoseInput& input);
+  // Updates tuning fields only; filter, deadband and frame state is preserved.
+  void set_tuning(const HandMapperConfig& config);
   void reset();
 
  private:

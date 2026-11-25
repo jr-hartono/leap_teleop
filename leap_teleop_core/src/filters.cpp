@@ -43,6 +43,11 @@ double OneEuroFilter::filter(double value, double time_sec) {
   return last_value_;
 }
 
+void OneEuroFilter::set_parameters(double min_cutoff_hz, double beta) {
+  min_cutoff_hz_ = min_cutoff_hz;
+  beta_ = beta;
+}
+
 void OneEuroFilter::reset() {
   initialized_ = false;
   last_value_ = 0.0;
@@ -69,6 +74,8 @@ Eigen::Quaterniond OrientationFilter::filter(const Eigen::Quaterniond& value, do
   last_value_ = slerp(last_value_, input, mix);
   return last_value_;
 }
+
+void OrientationFilter::set_min_cutoff(double min_cutoff_hz) { min_cutoff_hz_ = min_cutoff_hz; }
 
 void OrientationFilter::reset() {
   initialized_ = false;
@@ -114,6 +121,11 @@ Eigen::Vector3d TranslationDeadband::filter(const Eigen::Vector3d& value, double
     return value;
   }
   return anchor_ + delta * (1.0 - threshold_m_ / distance);
+}
+
+void TranslationDeadband::set_parameters(double threshold_m, double hysteresis) {
+  threshold_m_ = threshold_m;
+  entry_threshold_m_ = threshold_m * hysteresis;
 }
 
 void TranslationDeadband::reset() {
@@ -173,6 +185,11 @@ Eigen::Quaterniond RotationDeadband::filter(const Eigen::Quaterniond& value, dou
   const Eigen::Quaterniond reduced =
       axis_angle(axis.x(), axis.y(), axis.z(), angle - threshold_rad_);
   return normalized(reduced * anchor_);
+}
+
+void RotationDeadband::set_parameters(double threshold_rad, double hysteresis) {
+  threshold_rad_ = threshold_rad;
+  entry_threshold_rad_ = threshold_rad * hysteresis;
 }
 
 void RotationDeadband::reset() {
