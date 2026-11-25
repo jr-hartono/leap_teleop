@@ -28,6 +28,13 @@ bool same_rotation(const Eigen::Quaterniond& a, const Eigen::Quaterniond& b) {
   return std::abs(a.normalized().dot(b.normalized())) > 1.0 - 1e-12;
 }
 
+// The turn in base axes produced by turning the wrist by `turn` (in device axes) from `start`.
+Eigen::Quaterniond turn_in_base(const Eigen::Quaterniond& turn, double yaw, MountMode mode) {
+  const Eigen::Quaterniond start = axis_angle(0.4, -0.7, 0.2, 1.1);
+  return world_delta(leap_orientation_to_base(turn * start, yaw, mode),
+                     leap_orientation_to_base(start, yaw, mode));
+}
+
 }  // namespace
 
 TEST(Frames, RotationIsOrthonormalWithDeterminantOne) {
@@ -83,16 +90,16 @@ TEST(Frames, HeadMountedWristRotationMapsToBaseAxes) {
   const MountMode mode = MountMode::kHeadMounted;
   const double angle = degrees_to_radians(30.0);
   // Roll about the forward-pointing device +y is a roll about base +x.
-  EXPECT_TRUE(same_rotation(leap_orientation_to_base(axis_angle(0.0, 1.0, 0.0, angle), 0.0, mode),
+  EXPECT_TRUE(same_rotation(turn_in_base(axis_angle(0.0, 1.0, 0.0, angle), 0.0, mode),
                             axis_angle(1.0, 0.0, 0.0, angle)));
   // Turning about the downward-pointing device +z is a turn about base -z.
-  EXPECT_TRUE(same_rotation(leap_orientation_to_base(axis_angle(0.0, 0.0, 1.0, angle), 0.0, mode),
+  EXPECT_TRUE(same_rotation(turn_in_base(axis_angle(0.0, 0.0, 1.0, angle), 0.0, mode),
                             axis_angle(0.0, 0.0, 1.0, -angle)));
   // Pitch about the left-pointing device +x is a pitch about base +y.
-  EXPECT_TRUE(same_rotation(leap_orientation_to_base(axis_angle(1.0, 0.0, 0.0, angle), 0.0, mode),
+  EXPECT_TRUE(same_rotation(turn_in_base(axis_angle(1.0, 0.0, 0.0, angle), 0.0, mode),
                             axis_angle(0.0, 1.0, 0.0, angle)));
   // With yaw 90, the forward roll axis becomes base +y.
-  EXPECT_TRUE(same_rotation(leap_orientation_to_base(axis_angle(0.0, 1.0, 0.0, angle), 90.0, mode),
+  EXPECT_TRUE(same_rotation(turn_in_base(axis_angle(0.0, 1.0, 0.0, angle), 90.0, mode),
                             axis_angle(0.0, 1.0, 0.0, angle)));
 }
 
@@ -103,11 +110,25 @@ TEST(Frames, BothMountsAgreeInOperatorAxes) {
   EXPECT_TRUE(
       device_position_to_operator(desktop_forward, MountMode::kDesktop)
           .isApprox(device_position_to_operator(head_forward, MountMode::kHeadMounted), 1e-12));
-  const double angle = degrees_to_radians(20.0);
-  // Rolling the palm about the forward axis.
-  EXPECT_TRUE(same_rotation(
-      device_orientation_to_operator(axis_angle(0.0, 0.0, -1.0, angle), MountMode::kDesktop),
-      device_orientation_to_operator(axis_angle(0.0, 1.0, 0.0, angle), MountMode::kHeadMounted)));
+  // The same physical palm orientation, as each mount reports it, maps to one operator orientation.
+  const Eigen::Quaterniond palm = axis_angle(0.2, 0.9, -0.4, 0.8);
+  for (const MountMode mode : {MountMode::kDesktop, MountMode::kHeadMounted}) {
+    const Eigen::Quaterniond seen_by_device =
+        Eigen::Quaterniond(leap_teleop::device_to_operator_rotation(mode).transpose()) * palm;
+    EXPECT_TRUE(same_rotation(device_orientation_to_operator(seen_by_device, mode), palm));
+  }
+}
+
+TEST(Frames, PalmAxesMapLikePositions) {
+  // An orientation is the palm's axes, so each axis maps like a direction does.
+  const Eigen::Quaterniond palm = axis_angle(-0.3, 0.5, 1.0, 1.3);
+  for (const MountMode mode : {MountMode::kDesktop, MountMode::kHeadMounted}) {
+    const Eigen::Quaterniond in_base = leap_orientation_to_base(palm, 37.0, mode);
+    for (const Eigen::Vector3d axis :
+         {Eigen::Vector3d::UnitX(), Eigen::Vector3d::UnitY(), Eigen::Vector3d::UnitZ()}) {
+      EXPECT_TRUE((in_base * axis).isApprox(leap_position_to_base(palm * axis, 37.0, mode), 1e-12));
+    }
+  }
 }
 
 TEST(Frames, CombinedMappingIsTheTwoStepsInOrder) {

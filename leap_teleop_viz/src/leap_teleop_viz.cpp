@@ -389,9 +389,7 @@ class VizNode : public rclcpp::Node {
       if (!hand_poses_[index] || time - hand_pose_times_[index] > kInputTimeout) {
         continue;
       }
-      geometry_msgs::msg::Pose palm = hand_poses_[index]->pose;
-      palm.orientation = quaternion_to_msg(
-          viz::palm_axes_in_operator(quaternion_from_msg(palm.orientation), *mount_mode_));
+      const geometry_msgs::msg::Pose& palm = hand_poses_[index]->pose;
       std::vector<Marker> filtered;
       const auto palm_axes = viz::axes(palm, 0.07, 0.006, 1.0F);
       filtered.assign(palm_axes.begin(), palm_axes.end());

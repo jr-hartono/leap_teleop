@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <optional>
 
 #include "leap_teleop_core/frames.hpp"
@@ -64,8 +65,11 @@ TEST(HandMapper, ScalesNeitherPositionNorOrientation) {
   input.time_sec = 0.0;
   const auto pose = mapper.update(input);
   EXPECT_TRUE(point_from_msg(pose.position).isApprox(Eigen::Vector3d(0.2, 0.0, 0.0), 1e-12));
-  EXPECT_NEAR(rotation_angle(leap_teleop::quaternion_from_msg(pose.orientation)),
-              degrees_to_radians(30.0), 1e-12);
+  // Only mapped into operator axes, not scaled.
+  const Eigen::Quaterniond expected = leap_teleop::device_orientation_to_operator(
+      input.orientation, leap_teleop::MountMode::kDesktop);
+  EXPECT_NEAR(std::abs(leap_teleop::quaternion_from_msg(pose.orientation).dot(expected)), 1.0,
+              1e-12);
 }
 
 TEST(HandMapper, SetTuningKeepsFilterState) {
@@ -91,8 +95,11 @@ TEST(HandMapper, OrientationIsNotScaled) {
   input.orientation = axis_angle(0.0, 0.0, 1.0, degrees_to_radians(30.0));
   input.time_sec = 0.0;
   const auto pose = mapper.update(input);
-  EXPECT_NEAR(rotation_angle(leap_teleop::quaternion_from_msg(pose.orientation)),
-              degrees_to_radians(30.0), 1e-12);
+  // Only mapped into operator axes, not scaled.
+  const Eigen::Quaterniond expected = leap_teleop::device_orientation_to_operator(
+      input.orientation, leap_teleop::MountMode::kDesktop);
+  EXPECT_NEAR(std::abs(leap_teleop::quaternion_from_msg(pose.orientation).dot(expected)), 1.0,
+              1e-12);
 }
 
 TEST(PerSideMapper, LosingTheLeftHandKeepsTheRightHandsFilterState) {

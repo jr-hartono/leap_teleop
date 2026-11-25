@@ -13,12 +13,11 @@ double radians_to_degrees(double radians) { return radians * 180.0 / kPi; }
 
 namespace {
 
-// Expresses a rotation given in one frame in another frame: R * q * R^T.
-Eigen::Quaterniond change_basis(const Eigen::Matrix3d& rotation,
-                                const Eigen::Quaterniond& orientation) {
-  const Eigen::Matrix3d in_target =
-      rotation * normalized(orientation).toRotationMatrix() * rotation.transpose();
-  return normalized(Eigen::Quaterniond(in_target));
+// Expresses an orientation given in one frame in a frame rotated by `rotation`: R * q. A turn
+// between two orientations then becomes R * turn * R^T, the same turn about the mapped axis.
+Eigen::Quaterniond rotate_orientation(const Eigen::Matrix3d& rotation,
+                                      const Eigen::Quaterniond& orientation) {
+  return normalized(Eigen::Quaterniond(rotation) * normalized(orientation));
 }
 
 }  // namespace
@@ -54,7 +53,7 @@ Eigen::Vector3d device_position_to_operator(const Eigen::Vector3d& position, Mou
 
 Eigen::Quaterniond device_orientation_to_operator(const Eigen::Quaterniond& orientation,
                                                   MountMode mode) {
-  return change_basis(device_to_operator_rotation(mode), orientation);
+  return rotate_orientation(device_to_operator_rotation(mode), orientation);
 }
 
 Eigen::Matrix3d yaw_rotation(double yaw_deg) {
@@ -68,7 +67,7 @@ Eigen::Vector3d operator_position_to_base(const Eigen::Vector3d& position, doubl
 
 Eigen::Quaterniond operator_orientation_to_base(const Eigen::Quaterniond& orientation,
                                                 double yaw_deg) {
-  return change_basis(yaw_rotation(yaw_deg), orientation);
+  return rotate_orientation(yaw_rotation(yaw_deg), orientation);
 }
 
 Eigen::Matrix3d device_to_base_rotation(double yaw_deg, MountMode mode) {

@@ -156,7 +156,6 @@ TEST(HandFrames, FilteredPalmAxesMatchTheRawPalmAxes) {
     const Eigen::Quaterniond raw_in_operator =
         quaternion_from_msg(leap_teleop::viz::operator_to_device(mode).rotation) *
         device_orientation;
-    EXPECT_TRUE(
-        same_rotation(leap_teleop::viz::palm_axes_in_operator(filtered, mode), raw_in_operator));
+    EXPECT_TRUE(same_rotation(filtered, raw_in_operator));
   }
 }

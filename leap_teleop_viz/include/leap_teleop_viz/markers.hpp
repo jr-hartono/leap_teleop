@@ -39,9 +39,4 @@ geometry_msgs::msg::Transform base_to_operator(double yaw_deg, const Eigen::Vect
 // Static transform leap_operator -> leap_device_frame: the tracker's device -> operator axes.
 geometry_msgs::msg::Transform operator_to_device(MountMode mode);
 
-// The tracker maps orientations by change of basis (R q R^T), which keeps deltas but not the
-// palm's axes. Returns R q, the palm's axes in leap_operator, as drawn for the raw hand.
-Eigen::Quaterniond palm_axes_in_operator(const Eigen::Quaterniond& operator_orientation,
-                                         MountMode mode);
-
 }  // namespace leap_teleop::viz

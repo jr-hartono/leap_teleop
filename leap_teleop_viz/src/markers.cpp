@@ -83,9 +83,4 @@ geometry_msgs::msg::Transform operator_to_device(MountMode mode) {
   return transform;
 }
 
-Eigen::Quaterniond palm_axes_in_operator(const Eigen::Quaterniond& operator_orientation,
-                                         MountMode mode) {
-  return normalized(operator_orientation * Eigen::Quaterniond(device_to_operator_rotation(mode)));
-}
-
 }  // namespace leap_teleop::viz
