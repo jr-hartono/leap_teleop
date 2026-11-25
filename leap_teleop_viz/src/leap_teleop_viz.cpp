@@ -1,10 +1,13 @@
 #include <tf2/exceptions.h>
 #include <tf2/time.h>
 #include <tf2_ros/buffer.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <array>
 #include <chrono>
 #include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <leap_teleop_viz/leap_teleop_viz_parameters.hpp>
 #include <memory>
@@ -17,6 +20,9 @@
 
 #include "leap_teleop_core/delta_builder.hpp"
 #include "leap_teleop_core/frames.hpp"
+#include "leap_teleop_msgs/msg/hand.hpp"
+#include "leap_teleop_msgs/msg/hand_array.hpp"
+#include "leap_teleop_msgs/msg/hand_pose.hpp"
 #include "leap_teleop_msgs/msg/teleop_delta.hpp"
 #include "leap_teleop_viz/markers.hpp"
 
@@ -39,6 +45,30 @@ constexpr char kLatchedToolNs[] = "latched_tool";
 constexpr char kTargetNs[] = "target";
 constexpr char kUnscaledTargetNs[] = "target_before_scaling";
 constexpr char kTwistNs[] = "twist";
+constexpr char kRawPalmNs[] = "raw_palm";
+constexpr char kFilteredPalmNs[] = "filtered_palm";
+
+// Frames of the tracker's messages.
+constexpr char kOperatorFrame[] = "leap_operator";
+constexpr char kDeviceFrame[] = "leap_device_frame";
+
+using leap_teleop_msgs::msg::Hand;
+
+std_msgs::msg::ColorRGBA hand_color(const std::string& side, float alpha) {
+  return side == Hand::LEFT ? viz::color(1.0F, 0.5F, 0.0F, alpha)
+                            : viz::color(0.0F, 0.7F, 1.0F, alpha);
+}
+
+Marker sphere(const geometry_msgs::msg::Point& position, double diameter,
+              const std_msgs::msg::ColorRGBA& rgba) {
+  Marker marker;
+  marker.type = Marker::SPHERE;
+  marker.pose.position = position;
+  marker.pose.orientation.w = 1.0;
+  marker.scale.x = marker.scale.y = marker.scale.z = diameter;
+  marker.color = rgba;
+  return marker;
+}
 
 geometry_msgs::msg::Pose pose_from_transform(const geometry_msgs::msg::Transform& transform) {
   geometry_msgs::msg::Pose pose;
@@ -73,6 +103,24 @@ class VizNode : public rclcpp::Node {
         });
     marker_publisher_ = create_publisher<MarkerArray>("markers", rclcpp::QoS(rclcpp::KeepLast(10)));
 
+    hands_subscription_ = create_subscription<leap_teleop_msgs::msg::HandArray>(
+        "hands", rclcpp::QoS(rclcpp::KeepLast(1)),
+        [this](const leap_teleop_msgs::msg::HandArray::SharedPtr message) {
+          hands_ = *message;
+          hands_time_ = now().seconds();
+        });
+    for (std::size_t index = 0; index < kSides.size(); ++index) {
+      hand_pose_subscriptions_[index] = create_subscription<leap_teleop_msgs::msg::HandPose>(
+          "hand_pose/" + kSides[index], rclcpp::QoS(rclcpp::KeepLast(1)),
+          [this, index](const leap_teleop_msgs::msg::HandPose::SharedPtr message) {
+            hand_poses_[index] = *message;
+            hand_pose_times_[index] = now().seconds();
+          });
+    }
+    static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+    tracker_client_ = std::make_shared<rclcpp::AsyncParametersClient>(this, params_.tracker_node);
+    tracker_name_ = get_node_topics_interface()->resolve_topic_name(params_.tracker_node, true);
+
     // The scales follow the supervisor's parameters: read once, then from parameter events.
     supervisor_client_ =
         std::make_shared<rclcpp::AsyncParametersClient>(this, params_.supervisor_node);
@@ -84,11 +132,14 @@ class VizNode : public rclcpp::Node {
             return;
           }
           for (const auto& parameter : event->changed_parameters) {
-            set_scale(parameter.name, rclcpp::Parameter::from_parameter_msg(parameter));
+            set_supervisor_parameter(parameter.name,
+                                     rclcpp::Parameter::from_parameter_msg(parameter));
           }
         });
-    parameter_timer_ =
-        create_wall_timer(std::chrono::milliseconds(500), [this]() { fetch_scales(); });
+    parameter_timer_ = create_wall_timer(std::chrono::milliseconds(500), [this]() {
+      fetch_supervisor();
+      fetch_tracker();
+    });
 
     const auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::duration<double>(1.0 / kRenderRate));
@@ -96,8 +147,19 @@ class VizNode : public rclcpp::Node {
   }
 
  private:
-  void set_scale(const std::string& name, const rclcpp::Parameter& parameter) {
+  void set_supervisor_parameter(const std::string& name, const rclcpp::Parameter& parameter) {
+    if (name == "side" && parameter.get_type() == rclcpp::ParameterType::PARAMETER_STRING) {
+      side_ = parameter.as_string();
+      return;
+    }
     if (parameter.get_type() != rclcpp::ParameterType::PARAMETER_DOUBLE) {
+      return;
+    }
+    if (name == "yaw") {
+      if (!yaw_) {
+        yaw_ = parameter.as_double();
+        publish_static_transforms();
+      }
       return;
     }
     std::optional<double>* scale = nullptr;
@@ -114,29 +176,80 @@ class VizNode : public rclcpp::Node {
     *scale = parameter.as_double();
   }
 
-  void fetch_scales() {
-    if ((translation_scale_ && rotation_scale_) || fetching_scales_) {
+  // Reads the supervisor's parameters until all are known. yaw and side are read-only; the scales
+  // then follow parameter events.
+  void fetch_supervisor() {
+    if ((translation_scale_ && rotation_scale_ && yaw_ && side_) || fetching_supervisor_) {
       return;
     }
     if (!supervisor_client_->service_is_ready()) {
       RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 10000,
-                           "waiting for %s to read the scales; no target before scaling until then",
+                           "waiting for %s; no target before scaling or hand view until then",
                            supervisor_name_.c_str());
       return;
     }
-    fetching_scales_ = true;
+    fetching_supervisor_ = true;
     supervisor_client_->get_parameters(
-        {"translation_scale", "rotation_scale"},
+        {"translation_scale", "rotation_scale", "yaw", "side"},
         [this](std::shared_future<std::vector<rclcpp::Parameter>> future) {
-          fetching_scales_ = false;
+          fetching_supervisor_ = false;
           try {
             for (const auto& parameter : future.get()) {
-              set_scale(parameter.get_name(), parameter);
+              set_supervisor_parameter(parameter.get_name(), parameter);
             }
           } catch (const std::exception& error) {
-            RCLCPP_WARN(get_logger(), "cannot read the scales: %s", error.what());
+            RCLCPP_WARN(get_logger(), "cannot read the supervisor's parameters: %s", error.what());
           }
         });
+  }
+
+  // Reads the tracker's read-only mount_mode once.
+  void fetch_tracker() {
+    if (mount_mode_ || fetching_tracker_) {
+      return;
+    }
+    if (!tracker_client_->service_is_ready()) {
+      RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 10000,
+                           "waiting for %s; no hand view until then", tracker_name_.c_str());
+      return;
+    }
+    fetching_tracker_ = true;
+    tracker_client_->get_parameters(
+        {"mount_mode"}, [this](std::shared_future<std::vector<rclcpp::Parameter>> future) {
+          fetching_tracker_ = false;
+          try {
+            const auto parameters = future.get();
+            if (parameters.empty() ||
+                parameters[0].get_type() != rclcpp::ParameterType::PARAMETER_STRING) {
+              return;
+            }
+            mount_mode_ = mount_mode_from_string(parameters[0].as_string());
+            publish_static_transforms();
+          } catch (const std::exception& error) {
+            RCLCPP_WARN(get_logger(), "cannot read the tracker's mount_mode: %s", error.what());
+          }
+        });
+  }
+
+  void publish_static_transforms() {
+    if (!yaw_ || !mount_mode_) {
+      return;
+    }
+    const auto& offset = params_.hand_display_offset;
+    geometry_msgs::msg::TransformStamped base_to_operator;
+    base_to_operator.header.stamp = now();
+    base_to_operator.header.frame_id = params_.base_frame;
+    base_to_operator.child_frame_id = kOperatorFrame;
+    base_to_operator.transform =
+        viz::base_to_operator(*yaw_, Eigen::Vector3d(offset[0], offset[1], offset[2]));
+    geometry_msgs::msg::TransformStamped operator_to_device = base_to_operator;
+    operator_to_device.header.frame_id = kOperatorFrame;
+    operator_to_device.child_frame_id = kDeviceFrame;
+    operator_to_device.transform = viz::operator_to_device(*mount_mode_);
+    static_broadcaster_->sendTransform({base_to_operator, operator_to_device});
+    RCLCPP_INFO(get_logger(), "hand view: yaw %g, mount_mode %s, at (%g, %g, %g) in %s", *yaw_,
+                *mount_mode_ == MountMode::kDesktop ? "desktop" : "head_mounted", offset[0],
+                offset[1], offset[2], params_.base_frame.c_str());
   }
 
   void on_delta(const leap_teleop_msgs::msg::TeleopDelta& message) {
@@ -259,12 +372,55 @@ class VizNode : public rclcpp::Node {
     }
   }
 
+  void render_hands(MarkerArray& array, double time) {
+    if (hands_ && time - hands_time_ <= kInputTimeout) {
+      std::vector<Marker> raw;
+      for (const auto& hand : hands_->hands) {
+        const auto palm_axes = viz::axes(hand.palm, 0.05, 0.004, 0.35F);
+        raw.insert(raw.end(), palm_axes.begin(), palm_axes.end());
+        raw.push_back(sphere(hand.palm.position, 0.03, hand_color(hand.side, 0.35F)));
+      }
+      add(array, raw, kDeviceFrame, kRawPalmNs, kMarkerLifetime);
+    }
+    if (!mount_mode_) {
+      return;
+    }
+    for (std::size_t index = 0; index < kSides.size(); ++index) {
+      if (!hand_poses_[index] || time - hand_pose_times_[index] > kInputTimeout) {
+        continue;
+      }
+      geometry_msgs::msg::Pose palm = hand_poses_[index]->pose;
+      palm.orientation = quaternion_to_msg(
+          viz::palm_axes_in_operator(quaternion_from_msg(palm.orientation), *mount_mode_));
+      std::vector<Marker> filtered;
+      const auto palm_axes = viz::axes(palm, 0.07, 0.006, 1.0F);
+      filtered.assign(palm_axes.begin(), palm_axes.end());
+      filtered.push_back(sphere(palm.position, 0.03, hand_color(kSides[index], 1.0F)));
+      Marker label;
+      label.type = Marker::TEXT_VIEW_FACING;
+      label.pose.position = palm.position;
+      label.pose.position.z += 0.06;
+      label.pose.orientation.w = 1.0;
+      label.scale.z = 0.03;
+      label.color = viz::color(1.0F, 1.0F, 1.0F);
+      label.text = kSides[index] + (side_ && *side_ == kSides[index] ? " (teleop)" : "");
+      filtered.push_back(label);
+      // Each side keeps its own ids, so one hand leaving does not touch the other's markers.
+      const int first_id = static_cast<int>(index) * 10;
+      for (std::size_t offset = 0; offset < filtered.size(); ++offset) {
+        array.markers.push_back(stamped(filtered[offset], kOperatorFrame, kFilteredPalmNs,
+                                        first_id + static_cast<int>(offset), kMarkerLifetime));
+      }
+    }
+  }
+
   void render() {
     params_ = param_listener_->get_params();
     const double time = now().seconds();
     MarkerArray array;
     render_command_poses(array, time);
     render_twist(array, time);
+    render_hands(array, time);
     if (!array.markers.empty()) {
       marker_publisher_->publish(array);
     }
@@ -284,15 +440,31 @@ class VizNode : public rclcpp::Node {
   std::optional<geometry_msgs::msg::TwistStamped> command_;
   double command_time_ = 0.0;
 
+  inline static const std::array<std::string, 2> kSides = {Hand::LEFT, Hand::RIGHT};
+  std::optional<leap_teleop_msgs::msg::HandArray> hands_;
+  double hands_time_ = 0.0;
+  std::array<std::optional<leap_teleop_msgs::msg::HandPose>, 2> hand_poses_;
+  std::array<double, 2> hand_pose_times_{};
+
   std::shared_ptr<rclcpp::AsyncParametersClient> supervisor_client_;
   std::string supervisor_name_;
   std::optional<double> translation_scale_;
   std::optional<double> rotation_scale_;
-  bool fetching_scales_ = false;
+  std::optional<double> yaw_;
+  std::optional<std::string> side_;
+  bool fetching_supervisor_ = false;
+  std::shared_ptr<rclcpp::AsyncParametersClient> tracker_client_;
+  std::string tracker_name_;
+  std::optional<MountMode> mount_mode_;
+  bool fetching_tracker_ = false;
+  std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_broadcaster_;
 
   rclcpp::Subscription<leap_teleop_msgs::msg::TeleopDelta>::SharedPtr delta_subscription_;
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr command_subscription_;
   rclcpp::Subscription<rcl_interfaces::msg::ParameterEvent>::SharedPtr supervisor_events_;
+  rclcpp::Subscription<leap_teleop_msgs::msg::HandArray>::SharedPtr hands_subscription_;
+  std::array<rclcpp::Subscription<leap_teleop_msgs::msg::HandPose>::SharedPtr, 2>
+      hand_pose_subscriptions_;
   rclcpp::Publisher<MarkerArray>::SharedPtr marker_publisher_;
   rclcpp::TimerBase::SharedPtr parameter_timer_;
   rclcpp::TimerBase::SharedPtr render_timer_;

@@ -3,10 +3,12 @@
 #include <Eigen/Core>
 #include <array>
 #include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/transform.hpp>
 #include <std_msgs/msg/color_rgba.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
 #include "leap_teleop_core/delta_builder.hpp"
+#include "leap_teleop_core/frames.hpp"
 
 namespace leap_teleop::viz {
 
@@ -30,5 +32,16 @@ std::array<visualization_msgs::msg::Marker, 3> axes(const geometry_msgs::msg::Po
 std::array<visualization_msgs::msg::Marker, 3> axes(const geometry_msgs::msg::Pose& pose,
                                                     double length, double diameter,
                                                     const std_msgs::msg::ColorRGBA& rgba);
+
+// Static transform base frame -> leap_operator: the supervisor's yaw, placed at a display offset.
+geometry_msgs::msg::Transform base_to_operator(double yaw_deg, const Eigen::Vector3d& offset);
+
+// Static transform leap_operator -> leap_device_frame: the tracker's device -> operator axes.
+geometry_msgs::msg::Transform operator_to_device(MountMode mode);
+
+// The tracker maps orientations by change of basis (R q R^T), which keeps deltas but not the
+// palm's axes. Returns R q, the palm's axes in leap_operator, as drawn for the raw hand.
+Eigen::Quaterniond palm_axes_in_operator(const Eigen::Quaterniond& operator_orientation,
+                                         MountMode mode);
 
 }  // namespace leap_teleop::viz

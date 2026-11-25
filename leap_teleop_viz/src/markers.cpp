@@ -70,4 +70,22 @@ std::array<visualization_msgs::msg::Marker, 3> axes(const geometry_msgs::msg::Po
   return axes_with_colors(pose, length, diameter, {rgba, rgba, rgba});
 }
 
+geometry_msgs::msg::Transform base_to_operator(double yaw_deg, const Eigen::Vector3d& offset) {
+  geometry_msgs::msg::Transform transform;
+  transform.translation = vector_to_msg(offset);
+  transform.rotation = quaternion_to_msg(Eigen::Quaterniond(yaw_rotation(yaw_deg)));
+  return transform;
+}
+
+geometry_msgs::msg::Transform operator_to_device(MountMode mode) {
+  geometry_msgs::msg::Transform transform;
+  transform.rotation = quaternion_to_msg(Eigen::Quaterniond(device_to_operator_rotation(mode)));
+  return transform;
+}
+
+Eigen::Quaterniond palm_axes_in_operator(const Eigen::Quaterniond& operator_orientation,
+                                         MountMode mode) {
+  return normalized(operator_orientation * Eigen::Quaterniond(device_to_operator_rotation(mode)));
+}
+
 }  // namespace leap_teleop::viz

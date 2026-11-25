@@ -116,3 +116,47 @@ TEST(Axes, ArrowsAlongThePoseAxes) {
   EXPECT_FLOAT_EQ(markers[1].color.g, 1.0F);
   EXPECT_FLOAT_EQ(markers[2].color.b, 1.0F);
 }
+
+namespace {
+
+Eigen::Isometry3d isometry(const geometry_msgs::msg::Transform& transform) {
+  Eigen::Isometry3d result = Eigen::Isometry3d::Identity();
+  result.translate(leap_teleop::vector_from_msg(transform.translation));
+  result.rotate(quaternion_from_msg(transform.rotation));
+  return result;
+}
+
+}  // namespace
+
+// A point in the device frame, through the published transforms, lands where the supervisor
+// puts it in base axes, shifted by the display offset.
+TEST(HandFrames, DeviceToBaseMatchesTheTeleopMapping) {
+  using leap_teleop::MountMode;
+  const Eigen::Vector3d offset(0.5, -0.1, 0.3);
+  const Eigen::Vector3d point(0.03, 0.2, -0.05);
+  for (const MountMode mode : {MountMode::kDesktop, MountMode::kHeadMounted}) {
+    for (const double yaw : {0.0, 90.0, 180.0}) {
+      const Eigen::Isometry3d base_from_device =
+          isometry(leap_teleop::viz::base_to_operator(yaw, offset)) *
+          isometry(leap_teleop::viz::operator_to_device(mode));
+      const Eigen::Vector3d expected =
+          leap_teleop::leap_position_to_base(point, yaw, mode) + offset;
+      EXPECT_TRUE((base_from_device * point).isApprox(expected, 1e-12))
+          << "yaw " << yaw << " mode " << static_cast<int>(mode);
+    }
+  }
+}
+
+TEST(HandFrames, FilteredPalmAxesMatchTheRawPalmAxes) {
+  using leap_teleop::MountMode;
+  const Eigen::Quaterniond device_orientation = axis_angle(0.3, -1.0, 0.5, 0.8);
+  for (const MountMode mode : {MountMode::kDesktop, MountMode::kHeadMounted}) {
+    const Eigen::Quaterniond filtered =
+        leap_teleop::device_orientation_to_operator(device_orientation, mode);
+    const Eigen::Quaterniond raw_in_operator =
+        quaternion_from_msg(leap_teleop::viz::operator_to_device(mode).rotation) *
+        device_orientation;
+    EXPECT_TRUE(
+        same_rotation(leap_teleop::viz::palm_axes_in_operator(filtered, mode), raw_in_operator));
+  }
+}
