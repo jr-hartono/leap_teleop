@@ -56,8 +56,7 @@ class SupervisorNode : public rclcpp::Node {
     tracking_timeout_ = params.tracking_timeout;
     min_hand_age_ = params.min_hand_age;
 
-    frame_ = (params.rotation_frame == "tool") ? RotationFrame::kTool : RotationFrame::kWorld;
-    delta_builder_ = std::make_unique<DeltaBuilder>(frame_);
+    delta_builder_ = std::make_unique<DeltaBuilder>();
     fsm_ = std::make_unique<SupervisorFsm>(params.hold_timeout);
 
     hand_subscription_ = create_subscription<leap_teleop_msgs::msg::HandPose>(
@@ -156,9 +155,6 @@ class SupervisorNode : public rclcpp::Node {
     if (engaged && latest_hand_) {
       target.delta = to_transform_msg(delta_builder_->compute(latest_hand_->pose));
     }
-    target.rotation_frame = (frame_ == RotationFrame::kTool)
-                                ? leap_teleop_msgs::msg::TeleopDelta::TOOL
-                                : leap_teleop_msgs::msg::TeleopDelta::WORLD;
     target.sequence = ++sequence_;
 
     leap_teleop_msgs::msg::TeleopState state;
@@ -175,7 +171,6 @@ class SupervisorNode : public rclcpp::Node {
 
   std::shared_ptr<leap_teleop_supervisor::ParamListener> param_listener_;
   std::string base_frame_;
-  RotationFrame frame_ = RotationFrame::kWorld;
   double tracking_timeout_ = 0.15;
   double min_hand_age_ = 0.2;
   double last_publish_ = 0.0;

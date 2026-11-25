@@ -2,8 +2,6 @@
 
 namespace leap_teleop {
 
-DeltaBuilder::DeltaBuilder(RotationFrame frame) : frame_(frame) {}
-
 void DeltaBuilder::latch(const geometry_msgs::msg::Pose& pose) {
   latched_position_ = point_from_msg(pose.position);
   latched_orientation_ = quaternion_from_msg(pose.orientation);
@@ -12,15 +10,12 @@ void DeltaBuilder::latch(const geometry_msgs::msg::Pose& pose) {
 
 TransformDelta DeltaBuilder::compute(const geometry_msgs::msg::Pose& current) const {
   TransformDelta delta;
-  delta.frame = frame_;
   if (!latched_) {
     return delta;
   }
   delta.translation = point_from_msg(current.position) - latched_position_;
   const Eigen::Quaterniond orientation = quaternion_from_msg(current.orientation);
-  delta.rotation = (frame_ == RotationFrame::kWorld)
-                       ? world_delta(orientation, latched_orientation_)
-                       : tool_delta(orientation, latched_orientation_);
+  delta.rotation = world_delta(orientation, latched_orientation_);
   return delta;
 }
 
@@ -33,12 +28,10 @@ geometry_msgs::msg::Transform to_transform_msg(const TransformDelta& delta) {
   return msg;
 }
 
-TransformDelta delta_from_transform_msg(const geometry_msgs::msg::Transform& msg,
-                                        RotationFrame frame) {
+TransformDelta delta_from_transform_msg(const geometry_msgs::msg::Transform& msg) {
   TransformDelta delta;
   delta.translation = vector_from_msg(msg.translation);
   delta.rotation = quaternion_from_msg(msg.rotation);
-  delta.frame = frame;
   return delta;
 }
 
@@ -47,9 +40,8 @@ geometry_msgs::msg::Pose apply_delta(const geometry_msgs::msg::Pose& latched,
   geometry_msgs::msg::Pose result;
   result.position = point_to_msg(point_from_msg(latched.position) + delta.translation);
   const Eigen::Quaterniond latched_orientation = quaternion_from_msg(latched.orientation);
-  const Eigen::Quaterniond rotated = (delta.frame == RotationFrame::kWorld)
-                                         ? delta.rotation * latched_orientation
-                                         : latched_orientation * delta.rotation;
+  // Rotate about the tool origin in base axes; a full transform would swing the position.
+  const Eigen::Quaterniond rotated = delta.rotation * latched_orientation;
   result.orientation = quaternion_to_msg(rotated);
   return result;
 }

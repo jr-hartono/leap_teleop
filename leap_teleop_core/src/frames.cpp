@@ -103,11 +103,6 @@ Eigen::Quaterniond world_delta(const Eigen::Quaterniond& current,
   return normalized(normalized(current) * normalized(reference).inverse());
 }
 
-Eigen::Quaterniond tool_delta(const Eigen::Quaterniond& current,
-                              const Eigen::Quaterniond& reference) {
-  return normalized(normalized(reference).inverse() * normalized(current));
-}
-
 Eigen::Vector3d vector_from_msg(const geometry_msgs::msg::Vector3& msg) {
   return Eigen::Vector3d(msg.x, msg.y, msg.z);
 }

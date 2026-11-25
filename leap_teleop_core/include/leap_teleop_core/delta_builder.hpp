@@ -9,24 +9,18 @@
 
 namespace leap_teleop {
 
-enum class RotationFrame { kWorld, kTool };
-
 struct TransformDelta {
   Eigen::Vector3d translation = Eigen::Vector3d::Zero();
   Eigen::Quaterniond rotation = Eigen::Quaterniond::Identity();
-  RotationFrame frame = RotationFrame::kWorld;
 };
 
 class DeltaBuilder {
  public:
-  explicit DeltaBuilder(RotationFrame frame = RotationFrame::kWorld);
-
   void latch(const geometry_msgs::msg::Pose& pose);
   [[nodiscard]] TransformDelta compute(const geometry_msgs::msg::Pose& current) const;
   [[nodiscard]] bool latched() const;
 
  private:
-  RotationFrame frame_;
   Eigen::Vector3d latched_position_ = Eigen::Vector3d::Zero();
   Eigen::Quaterniond latched_orientation_ = Eigen::Quaterniond::Identity();
   bool latched_ = false;
@@ -34,8 +28,7 @@ class DeltaBuilder {
 
 geometry_msgs::msg::Transform to_transform_msg(const TransformDelta& delta);
 
-TransformDelta delta_from_transform_msg(const geometry_msgs::msg::Transform& msg,
-                                        RotationFrame frame = RotationFrame::kWorld);
+TransformDelta delta_from_transform_msg(const geometry_msgs::msg::Transform& msg);
 
 geometry_msgs::msg::Pose apply_delta(const geometry_msgs::msg::Pose& latched,
                                      const TransformDelta& delta);

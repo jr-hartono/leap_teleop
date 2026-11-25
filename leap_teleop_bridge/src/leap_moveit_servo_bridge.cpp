@@ -151,11 +151,7 @@ class MoveItServoBridge : public rclcpp::Node {
             tf_buffer_->lookupTransform(latched_frame_, tool_frame_, tf2::TimePointZero);
         const geometry_msgs::msg::Pose current = pose_from_transform(current_transform.transform);
 
-        const RotationFrame frame =
-            (target_.rotation_frame == leap_teleop_msgs::msg::TeleopDelta::TOOL)
-                ? RotationFrame::kTool
-                : RotationFrame::kWorld;
-        const TransformDelta delta = delta_from_transform_msg(target_.delta, frame);
+        const TransformDelta delta = delta_from_transform_msg(target_.delta);
         const geometry_msgs::msg::Pose desired = apply_delta(latched_tool_, delta);
 
         const Eigen::Vector3d position_error =

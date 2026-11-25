@@ -28,8 +28,6 @@ double rotation_angle(const Eigen::Quaterniond& q);
 
 Eigen::Quaterniond world_delta(const Eigen::Quaterniond& current,
                                const Eigen::Quaterniond& reference);
-Eigen::Quaterniond tool_delta(const Eigen::Quaterniond& current,
-                              const Eigen::Quaterniond& reference);
 
 Eigen::Vector3d vector_from_msg(const geometry_msgs::msg::Vector3& msg);
 geometry_msgs::msg::Vector3 vector_to_msg(const Eigen::Vector3d& value);

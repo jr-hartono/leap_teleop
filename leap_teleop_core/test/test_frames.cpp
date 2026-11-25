@@ -9,7 +9,6 @@ using leap_teleop::leap_position_to_base;
 using leap_teleop::quaternion_power;
 using leap_teleop::rotation_angle;
 using leap_teleop::slerp;
-using leap_teleop::tool_delta;
 using leap_teleop::world_delta;
 
 TEST(Frames, RotationIsOrthonormalWithDeterminantOne) {
@@ -35,10 +34,8 @@ TEST(Frames, YawRotatesTheMappingAboutBaseZ) {
 }
 
 TEST(Frames, QuaternionPowerScalesTheAngle) {
-  const Eigen::Quaterniond thirty =
-      axis_angle(0.0, 0.0, 1.0, degrees_to_radians(30.0));
-  EXPECT_NEAR(rotation_angle(quaternion_power(thirty, 2.0)),
-              degrees_to_radians(60.0), 1e-12);
+  const Eigen::Quaterniond thirty = axis_angle(0.0, 0.0, 1.0, degrees_to_radians(30.0));
+  EXPECT_NEAR(rotation_angle(quaternion_power(thirty, 2.0)), degrees_to_radians(60.0), 1e-12);
   EXPECT_NEAR(rotation_angle(quaternion_power(thirty, 0.0)), 0.0, 1e-12);
 }
 
@@ -50,15 +47,12 @@ TEST(Frames, SlerpStaysOnTheShortestArc) {
   EXPECT_NEAR(rotation_angle(slerp(start, end, 1.0)), degrees_to_radians(90.0), 1e-12);
 }
 
-TEST(Frames, WorldAndToolDeltasDifferForNonCommutingRotations) {
+TEST(Frames, WorldDeltaIsInBaseAxes) {
   const Eigen::Quaterniond reference = axis_angle(1.0, 0.0, 0.0, degrees_to_radians(90.0));
   const Eigen::Quaterniond yaw = axis_angle(0.0, 0.0, 1.0, degrees_to_radians(90.0));
   const Eigen::Quaterniond current = yaw * reference;
 
   EXPECT_TRUE(world_delta(current, reference).isApprox(yaw, 1e-12));
-  EXPECT_FALSE(tool_delta(current, reference).isApprox(yaw, 1e-12));
-  EXPECT_TRUE(tool_delta(current, reference)
-                  .isApprox(reference.inverse() * current, 1e-12));
 }
 
 TEST(Frames, MessageConversionRoundTrip) {
@@ -66,6 +60,6 @@ TEST(Frames, MessageConversionRoundTrip) {
   const Eigen::Vector3d position(0.1, -0.2, 0.3);
   EXPECT_TRUE(leap_teleop::quaternion_from_msg(leap_teleop::quaternion_to_msg(orientation))
                   .isApprox(orientation, 1e-12));
-  EXPECT_TRUE(leap_teleop::vector_from_msg(leap_teleop::vector_to_msg(position))
-                  .isApprox(position, 1e-12));
+  EXPECT_TRUE(
+      leap_teleop::vector_from_msg(leap_teleop::vector_to_msg(position)).isApprox(position, 1e-12));
 }

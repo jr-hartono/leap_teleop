@@ -40,8 +40,6 @@ leap_teleop_supervisor:
   ros__parameters:
     # TF frame of the deltas. yaw is relative to it.
     base_frame: base_link
-    # Frame the rotation delta is composed in: world | tool.
-    rotation_frame: world
 
     # Age after which a hand pose counts as lost, in seconds.
     tracking_timeout: 0.15

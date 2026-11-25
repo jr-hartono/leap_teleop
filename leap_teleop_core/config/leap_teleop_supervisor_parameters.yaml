@@ -8,13 +8,6 @@ leap_teleop_supervisor:
     read_only: true
     validation:
       not_empty<>: []
-  rotation_frame:
-    type: string
-    default_value: world
-    description: "Frame the rotation delta is composed in: world | tool."
-    read_only: true
-    validation:
-      one_of<>: [["world", "tool"]]
   tracking_timeout:
     type: double
     default_value: 0.15

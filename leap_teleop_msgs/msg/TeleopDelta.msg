@@ -10,10 +10,6 @@ string IDLE="idle"
 string ENGAGED="engaged"
 string HOLD="hold"
 
-# Rotation composition orders.
-string WORLD="world"
-string TOOL="tool"
-
 # Stamp is propagated from HandPose; frame_id is base_frame.
 std_msgs/Header header
 
@@ -28,9 +24,6 @@ bool engaged
 
 # Base-frame displacement since latch. Identity at engage.
 geometry_msgs/Transform delta
-
-# WORLD or TOOL, telling the bridge how to compose delta with the latched pose.
-string rotation_frame
 
 # Increasing counter, one per published target.
 uint32 sequence
