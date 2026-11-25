@@ -78,14 +78,21 @@ std::unordered_map<std::string, int> build_key_map() {
       {"left", KEY_LEFT},
       {"right", KEY_RIGHT},
   };
-  for (int i = 0; i < 26; ++i) {
-    keys[std::string(1, static_cast<char>('a' + i))] = KEY_A + i;
-  }
-  for (int i = 0; i < 10; ++i) {
-    keys[std::to_string(i)] = (i == 0) ? KEY_0 : KEY_1 + i - 1;
-  }
-  for (int i = 0; i < 12; ++i) {
-    keys["f" + std::to_string(i + 1)] = KEY_F1 + i;
+  // evdev codes follow the keyboard layout, not the alphabet, so each key is listed.
+  const std::pair<const char*, int> layout_keys[] = {
+      {"a", KEY_A},     {"b", KEY_B},     {"c", KEY_C},     {"d", KEY_D},   {"e", KEY_E},
+      {"f", KEY_F},     {"g", KEY_G},     {"h", KEY_H},     {"i", KEY_I},   {"j", KEY_J},
+      {"k", KEY_K},     {"l", KEY_L},     {"m", KEY_M},     {"n", KEY_N},   {"o", KEY_O},
+      {"p", KEY_P},     {"q", KEY_Q},     {"r", KEY_R},     {"s", KEY_S},   {"t", KEY_T},
+      {"u", KEY_U},     {"v", KEY_V},     {"w", KEY_W},     {"x", KEY_X},   {"y", KEY_Y},
+      {"z", KEY_Z},     {"0", KEY_0},     {"1", KEY_1},     {"2", KEY_2},   {"3", KEY_3},
+      {"4", KEY_4},     {"5", KEY_5},     {"6", KEY_6},     {"7", KEY_7},   {"8", KEY_8},
+      {"9", KEY_9},     {"f1", KEY_F1},   {"f2", KEY_F2},   {"f3", KEY_F3}, {"f4", KEY_F4},
+      {"f5", KEY_F5},   {"f6", KEY_F6},   {"f7", KEY_F7},   {"f8", KEY_F8}, {"f9", KEY_F9},
+      {"f10", KEY_F10}, {"f11", KEY_F11}, {"f12", KEY_F12},
+  };
+  for (const auto& [name, code] : layout_keys) {
+    keys[name] = code;
   }
   return keys;
 }
@@ -135,7 +142,16 @@ int key_code_from_name(const std::string& name) {
   static const std::unordered_map<std::string, int> keys = build_key_map();
   const auto found = keys.find(name);
   if (found == keys.end()) {
-    throw std::invalid_argument("unknown key name '" + name + "' for parameter 'key'");
+    std::vector<std::string> names;
+    for (const auto& entry : keys) {
+      names.push_back(entry.first);
+    }
+    std::sort(names.begin(), names.end());
+    std::string message = "unknown key name '" + name + "' for parameter 'key'; accepted:";
+    for (const auto& known : names) {
+      message += " " + known;
+    }
+    throw std::invalid_argument(message);
   }
   return found->second;
 }

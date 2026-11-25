@@ -70,7 +70,7 @@ if(BUILD_TESTING)
   ament_add_gtest(test_supervisor_fsm test/test_supervisor_fsm.cpp)
   target_link_libraries(test_supervisor_fsm leap_hand_mapping)
 
-  ament_add_gtest(test_keyboard_deadman test/test_keyboard_deadman.cpp)
+  ament_add_gtest(test_keyboard_deadman test/test_keyboard_deadman.cpp src/keyboard_deadman.cpp)
   target_link_libraries(test_keyboard_deadman leap_hand_mapping)
 endif()
 

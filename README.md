@@ -82,16 +82,17 @@ export ROS_DOMAIN_ID=42   # keep the demo away from any real robot on your netwo
 ros2 launch leap_teleop_bringup demo_ur_mock.launch.py
 ```
 
-Hold **space**, move your right hand above the controller, and the arm follows. Release space to
+Hold **left Alt**, move your right hand above the controller, and the arm follows. Release it to
 stop. To re-centre, release, move your hand back, and press again.
 
 Servo logs `Waiting to receive robot state update.` for a few seconds at startup. That stops once
 the arm has moved to its start pose.
 
-If space does nothing, look for `using keyboard ...` in the log: the deadman listens to one
-keyboard only. Copy [example_arm.yaml](leap_teleop_bringup/config/example_arm.yaml), set
-`device` to your keyboard's `/dev/input/by-id/...-event-kbd` path, and add
-`params_file:=/path/to/copy.yaml` to the launch command.
+The deadman listens on every keyboard it can read; the log lists them as `listening on
+keyboard ...`. To use only one, copy
+[example_arm.yaml](leap_teleop_bringup/config/example_arm.yaml), set `device` to its
+`/dev/input/by-id/...-event-kbd` path, and add `params_file:=/path/to/copy.yaml` to the launch
+command.
 
 ## Use it with your robot
 

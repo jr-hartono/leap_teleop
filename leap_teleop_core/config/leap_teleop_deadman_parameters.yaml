@@ -3,7 +3,7 @@
 leap_teleop_deadman:
   key:
     type: string
-    default_value: space
+    default_value: leftalt
     description: "Key to authorize motion: a-z, 0-9, f1-f12, space, enter, tab, esc, backspace, delete, insert, home, end, pageup, pagedown, up, down, left, right, capslock, and left or right ctrl, shift, alt, meta (for example leftctrl)."
     read_only: true
     validation:
@@ -11,5 +11,5 @@ leap_teleop_deadman:
   device:
     type: string
     default_value: ""
-    description: "Keyboard event device path, /dev/input/by-id/...-event-kbd. Empty picks the first keyboard."
+    description: "Keyboard event device path, /dev/input/by-id/...-event-kbd. Empty listens on all keyboards."
     read_only: true

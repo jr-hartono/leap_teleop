@@ -1,11 +1,11 @@
-#include <unistd.h>
-
 #include <chrono>
+#include <cstddef>
 #include <leap_teleop_core/leap_teleop_deadman_parameters.hpp>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "leap_teleop_core/keyboard_deadman.hpp"
@@ -22,31 +22,30 @@ class DeadmanNode : public rclcpp::Node {
     const int key_code = key_code_from_name(params.key);
     const std::string configured_device = params.device;
 
-    const std::vector<std::string> candidates = discover_keyboards();
-    std::string selected;
-    if (!configured_device.empty()) {
-      if (access(configured_device.c_str(), R_OK) != 0) {
-        throw std::runtime_error("configured deadman device '" + configured_device +
-                                 "' is not readable");
+    // With no device configured, listen on every keyboard: the operator may press the key on
+    // any of them, and the first one found is often not the one in use.
+    const std::vector<std::string> paths = configured_device.empty()
+                                               ? discover_keyboards()
+                                               : std::vector<std::string>{configured_device};
+    for (const auto& path : paths) {
+      auto keyboard = std::make_unique<KeyboardDeadman>(path, key_code);
+      try {
+        keyboard->open_device();
+      } catch (const std::runtime_error& error) {
+        if (!configured_device.empty()) {
+          throw;
+        }
+        RCLCPP_WARN(get_logger(), "skipping keyboard: %s", error.what());
+        continue;
       }
-      selected = configured_device;
-    } else {
-      if (candidates.empty()) {
-        throw std::runtime_error("no keyboard found under /dev/input; configure 'device'");
-      }
-      selected = candidates.front();
+      RCLCPP_INFO(get_logger(), "listening on keyboard %s", path.c_str());
+      keyboards_.push_back(std::move(keyboard));
     }
-
-    for (const auto& candidate : candidates) {
-      if (candidate != selected) {
-        RCLCPP_INFO(get_logger(), "rejected keyboard candidate: %s", candidate.c_str());
-      }
+    if (keyboards_.empty()) {
+      throw std::runtime_error("no readable keyboard found under /dev/input; configure 'device'");
     }
-    RCLCPP_INFO(get_logger(), "using keyboard %s, key %s (code %d)", selected.c_str(),
-                params.key.c_str(), key_code);
-
-    deadman_ = std::make_unique<KeyboardDeadman>(selected, key_code);
-    deadman_->open_device();
+    loss_reported_.assign(keyboards_.size(), false);
+    RCLCPP_INFO(get_logger(), "deadman key %s (code %d)", params.key.c_str(), key_code);
 
     publisher_ = create_publisher<leap_teleop_msgs::msg::DeadmanState>(
         "deadman", rclcpp::QoS(rclcpp::KeepLast(1)));
@@ -57,22 +56,34 @@ class DeadmanNode : public rclcpp::Node {
 
  private:
   void on_tick() {
-    deadman_->poll();
-    if (!deadman_->healthy() && !loss_reported_) {
-      RCLCPP_WARN(get_logger(), "keyboard %s is gone; publishing engaged=false",
-                  deadman_->device_path().c_str());
-      loss_reported_ = true;
+    bool engaged = false;
+    bool any_healthy = false;
+    for (std::size_t i = 0; i < keyboards_.size(); ++i) {
+      KeyboardDeadman& keyboard = *keyboards_[i];
+      keyboard.poll();
+      if (keyboard.healthy()) {
+        any_healthy = true;
+        engaged = engaged || keyboard.engaged();
+      } else if (!loss_reported_[i]) {
+        RCLCPP_WARN(get_logger(), "keyboard %s is gone", keyboard.device_path().c_str());
+        loss_reported_[i] = true;
+      }
+    }
+    if (!any_healthy && !all_lost_reported_) {
+      RCLCPP_ERROR(get_logger(), "no keyboard left; publishing engaged=false");
+      all_lost_reported_ = true;
     }
     leap_teleop_msgs::msg::DeadmanState message;
     message.stamp = now();
-    message.engaged = deadman_->healthy() && deadman_->engaged();
+    message.engaged = engaged;
     message.source = "evdev";
     publisher_->publish(message);
   }
 
   std::shared_ptr<leap_teleop_deadman::ParamListener> param_listener_;
-  bool loss_reported_ = false;
-  std::unique_ptr<KeyboardDeadman> deadman_;
+  std::vector<std::unique_ptr<KeyboardDeadman>> keyboards_;
+  std::vector<bool> loss_reported_;
+  bool all_lost_reported_ = false;
   rclcpp::Publisher<leap_teleop_msgs::msg::DeadmanState>::SharedPtr publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
