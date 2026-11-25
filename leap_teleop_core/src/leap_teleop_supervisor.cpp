@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -33,8 +34,6 @@ bool finite_pose(const geometry_msgs::msg::Pose& pose) {
          std::isfinite(pose.orientation.w);
 }
 
-bool valid_rotation_scale(double scale) { return std::isfinite(scale) && scale > 0.0; }
-
 std::string state_token(State state) {
   switch (state) {
     case State::kIdle:
@@ -57,6 +56,11 @@ class SupervisorNode : public rclcpp::Node {
     base_frame_ = params.base_frame;
     tracking_timeout_ = params.tracking_timeout;
     min_hand_age_ = params.min_hand_age;
+    current_params_ = params;
+    translation_scale_ = params.translation_scale;
+    rotation_scale_ = params.rotation_scale;
+    param_listener_->setUserCallback(
+        [this](const leap_teleop_supervisor::Params& updated) { apply_tuning(updated); });
 
     delta_builder_ = std::make_unique<DeltaBuilder>();
     fsm_ = std::make_unique<SupervisorFsm>(params.hold_timeout);
@@ -83,6 +87,20 @@ class SupervisorNode : public rclcpp::Node {
   }
 
  private:
+  // Runs on the parameter callback thread; the scales are atomics read by publish_if_due.
+  void apply_tuning(const leap_teleop_supervisor::Params& params) {
+    const auto log_change = [this](const char* name, double before, double after) {
+      if (before != after) {
+        RCLCPP_INFO(get_logger(), "parameter '%s' changed: %g -> %g", name, before, after);
+      }
+    };
+    log_change("translation_scale", current_params_.translation_scale, params.translation_scale);
+    log_change("rotation_scale", current_params_.rotation_scale, params.rotation_scale);
+    current_params_ = params;
+    translation_scale_ = params.translation_scale;
+    rotation_scale_ = params.rotation_scale;
+  }
+
   void on_hand_pose(const leap_teleop_msgs::msg::HandPose& message) {
     const double time = now().seconds();
     if (!have_hand_ || time - last_hand_time_ > tracking_timeout_) {
@@ -117,8 +135,6 @@ class SupervisorNode : public rclcpp::Node {
         reason = "invalid_sequence";
       } else if (!finite_pose(latest_hand_->pose)) {
         reason = "invalid_pose";
-      } else if (!valid_rotation_scale(latest_hand_->rotation_scale)) {
-        reason = "invalid_rotation_scale";
       } else {
         usable = true;
       }
@@ -158,7 +174,7 @@ class SupervisorNode : public rclcpp::Node {
     target.engaged = engaged;
     if (engaged && latest_hand_) {
       target.delta = to_transform_msg(
-          delta_builder_->compute(latest_hand_->pose, latest_hand_->rotation_scale));
+          delta_builder_->compute(latest_hand_->pose, translation_scale_, rotation_scale_));
     }
     target.sequence = ++sequence_;
 
@@ -176,6 +192,9 @@ class SupervisorNode : public rclcpp::Node {
 
   std::shared_ptr<leap_teleop_supervisor::ParamListener> param_listener_;
   std::string base_frame_;
+  leap_teleop_supervisor::Params current_params_;
+  std::atomic<double> translation_scale_{1.0};
+  std::atomic<double> rotation_scale_{1.0};
   double tracking_timeout_ = 0.15;
   double min_hand_age_ = 0.2;
   double last_publish_ = 0.0;

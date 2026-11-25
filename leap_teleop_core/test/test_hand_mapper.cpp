@@ -65,29 +65,16 @@ TEST(HandMapper, HeadMountedForwardBecomesForward) {
                   .isApprox(Eigen::Vector3d(0.1, 0.0, 0.0), 1e-12));
 }
 
-TEST(HandMapper, TranslationGainScalesTheHandMotion) {
-  HandMapperConfig config = fast_config();
-  config.translation_scale = 0.5;
-  HandMapper mapper(config);
+TEST(HandMapper, ScalesNeitherPositionNorOrientation) {
+  HandMapper mapper(fast_config());
   HandPoseInput input;
   input.position_m = Eigen::Vector3d(0.0, 0.0, -0.2);
+  input.orientation = axis_angle(0.0, 0.0, 1.0, degrees_to_radians(30.0));
   input.time_sec = 0.0;
-  EXPECT_TRUE(point_from_msg(mapper.update(input).position)
-                  .isApprox(Eigen::Vector3d(0.1, 0.0, 0.0), 1e-12));
-}
-
-TEST(HandMapper, SetTuningAppliesNewScale) {
-  HandMapperConfig config = fast_config();
-  HandMapper mapper(config);
-  HandPoseInput input;
-  input.position_m = Eigen::Vector3d(0.0, 0.0, -0.1);
-  input.time_sec = 0.0;
-  EXPECT_NEAR(point_from_msg(mapper.update(input).position).x(), 0.1, 1e-12);
-
-  config.translation_scale = 0.5;
-  mapper.set_tuning(config);
-  input.time_sec = 0.01;
-  EXPECT_NEAR(point_from_msg(mapper.update(input).position).x(), 0.05, 1e-12);
+  const auto pose = mapper.update(input);
+  EXPECT_TRUE(point_from_msg(pose.position).isApprox(Eigen::Vector3d(0.2, 0.0, 0.0), 1e-12));
+  EXPECT_NEAR(rotation_angle(leap_teleop::quaternion_from_msg(pose.orientation)),
+              degrees_to_radians(30.0), 1e-12);
 }
 
 TEST(HandMapper, SetTuningKeepsFilterState) {
@@ -99,13 +86,12 @@ TEST(HandMapper, SetTuningKeepsFilterState) {
   EXPECT_NEAR(point_from_msg(mapper.update(input).position).x(), 0.1, 1e-12);
 
   config.filter_min_cutoff_hz = 1.0;
-  config.translation_scale = 0.5;
   mapper.set_tuning(config);
   input.position_m = Eigen::Vector3d(0.0, 0.0, -0.2);
   input.time_sec = 0.01;
   const double x = point_from_msg(mapper.update(input).position).x();
-  EXPECT_GT(x, 0.05);
-  EXPECT_LT(x, 0.1);
+  EXPECT_GT(x, 0.1);
+  EXPECT_LT(x, 0.2);
 }
 
 TEST(HandMapper, SetTuningDoesNotChangeYaw) {
@@ -114,13 +100,13 @@ TEST(HandMapper, SetTuningDoesNotChangeYaw) {
   HandMapper mapper(config);
 
   HandMapperConfig update = fast_config();
-  update.translation_scale = 2.0;
+  update.filter_beta = 0.1;
   mapper.set_tuning(update);
 
   HandPoseInput input;
   input.position_m = Eigen::Vector3d(0.0, 0.0, -0.1);
   input.time_sec = 0.0;
-  EXPECT_NEAR(point_from_msg(mapper.update(input).position).x(), -0.2, 1e-12);
+  EXPECT_NEAR(point_from_msg(mapper.update(input).position).x(), -0.1, 1e-12);
 }
 
 TEST(HandMapper, OrientationIsNotScaled) {

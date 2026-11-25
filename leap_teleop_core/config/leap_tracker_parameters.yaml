@@ -22,22 +22,6 @@ leap_tracker:
     read_only: true
     validation:
       bounds<>: [-180.0, 180.0]
-  translation_scale:
-    type: double
-    default_value: 1.0
-    description: "Hand-to-tool translation ratio."
-    read_only: false
-    validation:
-      gt<>: [0.0]
-      lt_eq<>: [10.0]
-  rotation_scale:
-    type: double
-    default_value: 1.0
-    description: "Hand-to-tool rotation ratio, applied by the supervisor to the hand rotation since the key press."
-    read_only: false
-    validation:
-      gt<>: [0.0]
-      lt_eq<>: [10.0]
   deadband_translation:
     type: double
     default_value: 0.002

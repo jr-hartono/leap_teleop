@@ -45,7 +45,7 @@ TEST(DeltaBuilder, IdentityAtEngagement) {
   const auto latched = make_pose(Eigen::Vector3d(0.5, 0.0, 0.3), Eigen::Quaterniond::Identity());
   DeltaBuilder builder;
   builder.latch(latched);
-  const auto delta = builder.compute(latched);
+  const auto delta = builder.compute(latched, 1.0, 1.0);
   EXPECT_TRUE(delta.translation.isApprox(Eigen::Vector3d::Zero(), 1e-12));
   EXPECT_NEAR(rotation_angle(delta.rotation), 0.0, 1e-12);
 }
@@ -58,7 +58,7 @@ TEST(DeltaBuilder, PureRotationLeavesTheLatchedPositionUnchanged) {
 
   DeltaBuilder builder;
   builder.latch(latched);
-  const auto delta = builder.compute(rotated);
+  const auto delta = builder.compute(rotated, 1.0, 1.0);
 
   EXPECT_TRUE(delta.translation.isApprox(Eigen::Vector3d::Zero(), 1e-12));
   EXPECT_NEAR(rotation_angle(delta.rotation), degrees_to_radians(90.0), 1e-12);
@@ -74,8 +74,8 @@ TEST(DeltaBuilder, TranslationIsAddedInBaseAxes) {
   const auto current = make_pose(Eigen::Vector3d(0.1, -0.2, 0.05), Eigen::Quaterniond::Identity());
   DeltaBuilder builder;
   builder.latch(latched);
-  EXPECT_TRUE(
-      builder.compute(current).translation.isApprox(Eigen::Vector3d(0.1, -0.2, 0.05), 1e-12));
+  EXPECT_TRUE(builder.compute(current, 1.0, 1.0)
+                  .translation.isApprox(Eigen::Vector3d(0.1, -0.2, 0.05), 1e-12));
 }
 
 TEST(DeltaBuilder, RotationIsComposedInBaseAxes) {
@@ -88,7 +88,7 @@ TEST(DeltaBuilder, RotationIsComposedInBaseAxes) {
 
   DeltaBuilder builder;
   builder.latch(latched_hand);
-  const auto delta = builder.compute(current_hand);
+  const auto delta = builder.compute(current_hand, 1.0, 1.0);
   EXPECT_TRUE(delta.rotation.isApprox(yaw, 1e-12));
 
   const auto target = apply_delta(latched_tool, delta);
@@ -100,7 +100,7 @@ TEST(DeltaBuilder, TransformMessageCarriesTheDelta) {
   const auto current = make_pose(Eigen::Vector3d(0.02, 0.0, 0.0), Eigen::Quaterniond::Identity());
   DeltaBuilder builder;
   builder.latch(latched);
-  const auto msg = to_transform_msg(builder.compute(current));
+  const auto msg = to_transform_msg(builder.compute(current, 1.0, 1.0));
   EXPECT_TRUE(vector_from_msg(msg.translation).isApprox(Eigen::Vector3d(0.02, 0.0, 0.0), 1e-12));
 }
 
@@ -111,13 +111,13 @@ TEST(DeltaBuilder, RotationScaleMultipliesTheTurnSinceLatch) {
 
   DeltaBuilder builder;
   builder.latch(map_hand(start));
-  const auto delta = builder.compute(map_hand(turn * start), rotation_scale);
+  const auto delta = builder.compute(map_hand(turn * start), 1.0, rotation_scale);
 
   EXPECT_NEAR(rotation_angle(delta.rotation), degrees_to_radians(60.0), 1e-9);
   // Same as an unscaled 60 degree hand turn, which the mapper expresses in base axes.
   DeltaBuilder unscaled;
   unscaled.latch(map_hand(start));
-  const auto expected = unscaled.compute(map_hand(turn * turn * start));
+  const auto expected = unscaled.compute(map_hand(turn * turn * start), 1.0, 1.0);
   EXPECT_TRUE(delta.rotation.isApprox(expected.rotation, 1e-9) ||
               delta.rotation.coeffs().isApprox(-expected.rotation.coeffs(), 1e-9));
 }
@@ -131,9 +131,36 @@ TEST(DeltaBuilder, RotationScaleKeepsTheAxisAndLeavesTranslation) {
   DeltaBuilder builder;
   builder.latch(latched);
   for (const double rotation_scale : {0.5, 1.0, 3.0}) {
-    const auto delta = builder.compute(current, rotation_scale);
+    const auto delta = builder.compute(current, 1.0, rotation_scale);
     EXPECT_TRUE(delta.rotation.isApprox(
         axis_angle(1.0, 1.0, 0.0, degrees_to_radians(20.0 * rotation_scale)), 1e-9));
     EXPECT_TRUE(delta.translation.isApprox(Eigen::Vector3d(0.1, 0.0, 0.0), 1e-12));
   }
+}
+
+TEST(DeltaBuilder, TranslationScaleMultipliesTheTravelSinceLatch) {
+  const auto latched = make_pose(Eigen::Vector3d(0.1, 0.0, 0.0), Eigen::Quaterniond::Identity());
+  const auto current = make_pose(Eigen::Vector3d(0.3, -0.2, 0.1), Eigen::Quaterniond::Identity());
+
+  DeltaBuilder builder;
+  builder.latch(latched);
+  for (const double translation_scale : {0.5, 1.0, 3.0}) {
+    const auto delta = builder.compute(current, translation_scale, 1.0);
+    EXPECT_TRUE(
+        delta.translation.isApprox(translation_scale * Eigen::Vector3d(0.2, -0.2, 0.1), 1e-12));
+    EXPECT_TRUE(delta.rotation.isApprox(Eigen::Quaterniond::Identity(), 1e-12));
+  }
+}
+
+TEST(DeltaBuilder, BothScalesApplyTogether) {
+  const Eigen::Quaterniond start = axis_angle(0.3, -0.5, 0.8, degrees_to_radians(70.0));
+  const Eigen::Quaterniond turn = axis_angle(1.0, 1.0, 0.0, degrees_to_radians(20.0));
+  const auto latched = make_pose(Eigen::Vector3d(0.1, 0.0, 0.0), start);
+  const auto current = make_pose(Eigen::Vector3d(0.2, 0.1, 0.0), turn * start);
+
+  DeltaBuilder builder;
+  builder.latch(latched);
+  const auto delta = builder.compute(current, 2.0, 3.0);
+  EXPECT_TRUE(delta.translation.isApprox(Eigen::Vector3d(0.2, 0.2, 0.0), 1e-12));
+  EXPECT_TRUE(delta.rotation.isApprox(axis_angle(1.0, 1.0, 0.0, degrees_to_radians(60.0)), 1e-9));
 }

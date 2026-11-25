@@ -10,11 +10,6 @@
     # Yaw from device forward axis to robot's +x, in degrees.
     yaw: 0.0
 
-    # Hand-to-tool translation ratio. (dynamic)
-    translation_scale: 1.0
-    # Hand-to-tool rotation ratio. (dynamic)
-    rotation_scale: 1.0
-
     # Hand travel ignored at rest, in meters. (dynamic)
     deadband_translation: 0.002
     # Hand rotation ignored at rest, in degrees. (dynamic)
@@ -47,6 +42,11 @@
     min_hand_age: 0.2
     # Time in hold before idle, in seconds. 0 stays in hold.
     hold_timeout: 2.0
+
+    # Hand-to-tool translation ratio. (dynamic)
+    translation_scale: 1.0
+    # Hand-to-tool rotation ratio, applied to the hand rotation since the key press. (dynamic)
+    rotation_scale: 1.0
 
 /**/leap_moveit_servo_bridge:
   ros__parameters:
