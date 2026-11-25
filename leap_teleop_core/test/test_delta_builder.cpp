@@ -164,3 +164,54 @@ TEST(DeltaBuilder, BothScalesApplyTogether) {
   EXPECT_TRUE(delta.translation.isApprox(Eigen::Vector3d(0.2, 0.2, 0.0), 1e-12));
   EXPECT_TRUE(delta.rotation.isApprox(axis_angle(1.0, 1.0, 0.0, degrees_to_radians(60.0)), 1e-9));
 }
+
+TEST(DeltaBuilder, OperatorFrameMapperPlusYawMatchesTheCombinedDeviceToBaseMapping) {
+  const Eigen::Vector3d p0(0.01, -0.12, 0.05);
+  const Eigen::Vector3d p1(0.05, -0.10, 0.02);
+  const Eigen::Quaterniond q0 = axis_angle(0.3, -0.5, 0.8, degrees_to_radians(70.0));
+  const Eigen::Quaterniond q1 = axis_angle(1.0, 1.0, 0.0, degrees_to_radians(20.0)) * q0;
+
+  for (const auto mode : {leap_teleop::MountMode::kDesktop, leap_teleop::MountMode::kHeadMounted}) {
+    for (const double yaw : {0.0, 90.0, 180.0}) {
+      // Old path: device -> base in one step.
+      DeltaBuilder old_builder;
+      old_builder.latch(make_pose(leap_teleop::leap_position_to_base(p0, yaw, mode),
+                                  leap_teleop::leap_orientation_to_base(q0, yaw, mode)));
+      const auto expected =
+          old_builder.compute(make_pose(leap_teleop::leap_position_to_base(p1, yaw, mode),
+                                        leap_teleop::leap_orientation_to_base(q1, yaw, mode)),
+                              1.0, 1.0);
+
+      // New path: tracker mapper (operator frame), then the supervisor's yaw.
+      HandMapperConfig config;
+      config.mount_mode = mode;
+      config.deadband_translation_m = 0.0;
+      config.deadband_rotation_rad = 0.0;
+      const auto to_base = [&](const Eigen::Vector3d& p, const Eigen::Quaterniond& q) {
+        HandMapper mapper(config);  // Fresh state passes the sample through unfiltered.
+        HandPoseInput input;
+        input.position_m = p;
+        input.orientation = q;
+        return leap_teleop::operator_pose_to_base(mapper.update(input), yaw);
+      };
+      DeltaBuilder builder;
+      builder.latch(to_base(p0, q0));
+      const auto actual = builder.compute(to_base(p1, q1), 1.0, 1.0);
+
+      EXPECT_TRUE(actual.translation.isApprox(expected.translation, 1e-9)) << "yaw " << yaw;
+      EXPECT_TRUE(actual.rotation.isApprox(expected.rotation, 1e-9) ||
+                  actual.rotation.coeffs().isApprox(-expected.rotation.coeffs(), 1e-9))
+          << "yaw " << yaw;
+    }
+  }
+}
+
+TEST(DeltaBuilder, OperatorPoseToBaseRotatesAboutZ) {
+  const auto pose = make_pose(Eigen::Vector3d(1.0, 0.0, 0.5), Eigen::Quaterniond::Identity());
+  const auto at_90 = leap_teleop::operator_pose_to_base(pose, 90.0);
+  EXPECT_TRUE(point_from_msg(at_90.position).isApprox(Eigen::Vector3d(0.0, 1.0, 0.5), 1e-12));
+  const auto at_180 = leap_teleop::operator_pose_to_base(pose, 180.0);
+  EXPECT_TRUE(point_from_msg(at_180.position).isApprox(Eigen::Vector3d(-1.0, 0.0, 0.5), 1e-12));
+  const auto at_0 = leap_teleop::operator_pose_to_base(pose, 0.0);
+  EXPECT_TRUE(point_from_msg(at_0.position).isApprox(Eigen::Vector3d(1.0, 0.0, 0.5), 1e-12));
+}

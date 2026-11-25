@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <optional>
+
 #include "leap_teleop_core/frames.hpp"
 #include "leap_teleop_core/hand_mapper.hpp"
 
@@ -43,17 +45,6 @@ TEST(HandMapper, HandDownBecomesToolDown) {
   EXPECT_TRUE(point_from_msg(pose.position).isApprox(Eigen::Vector3d(0.0, 0.0, -0.1), 1e-12));
 }
 
-TEST(HandMapper, YawRotatesTheTranslationMapping) {
-  HandMapperConfig config = fast_config();
-  config.yaw_deg = 180.0;
-  HandMapper mapper(config);
-  HandPoseInput input;
-  input.position_m = Eigen::Vector3d(0.0, 0.0, -0.1);
-  input.time_sec = 0.0;
-  EXPECT_TRUE(point_from_msg(mapper.update(input).position)
-                  .isApprox(Eigen::Vector3d(-0.1, 0.0, 0.0), 1e-12));
-}
-
 TEST(HandMapper, HeadMountedForwardBecomesForward) {
   HandMapperConfig config = fast_config();
   config.mount_mode = leap_teleop::MountMode::kHeadMounted;
@@ -94,21 +85,6 @@ TEST(HandMapper, SetTuningKeepsFilterState) {
   EXPECT_LT(x, 0.2);
 }
 
-TEST(HandMapper, SetTuningDoesNotChangeYaw) {
-  HandMapperConfig config = fast_config();
-  config.yaw_deg = 180.0;
-  HandMapper mapper(config);
-
-  HandMapperConfig update = fast_config();
-  update.filter_beta = 0.1;
-  mapper.set_tuning(update);
-
-  HandPoseInput input;
-  input.position_m = Eigen::Vector3d(0.0, 0.0, -0.1);
-  input.time_sec = 0.0;
-  EXPECT_NEAR(point_from_msg(mapper.update(input).position).x(), -0.1, 1e-12);
-}
-
 TEST(HandMapper, OrientationIsNotScaled) {
   HandMapper mapper(fast_config());
   HandPoseInput input;
@@ -117,4 +93,49 @@ TEST(HandMapper, OrientationIsNotScaled) {
   const auto pose = mapper.update(input);
   EXPECT_NEAR(rotation_angle(leap_teleop::quaternion_from_msg(pose.orientation)),
               degrees_to_radians(30.0), 1e-12);
+}
+
+TEST(PerSideMapper, LosingTheLeftHandKeepsTheRightHandsFilterState) {
+  using leap_teleop::HandSide;
+  HandMapperConfig config = fast_config();
+  config.filter_min_cutoff_hz = 1.0;
+  leap_teleop::PerSideMapper mapper(config);
+
+  HandPoseInput input;
+  input.position_m = Eigen::Vector3d(0.0, 0.0, -0.1);
+  input.time_sec = 0.0;
+  ASSERT_TRUE(mapper.update(HandSide::kLeft, input));
+  ASSERT_TRUE(mapper.update(HandSide::kRight, input));
+
+  // The left hand disappears; the right hand keeps moving through its smoothing filter.
+  EXPECT_FALSE(mapper.update(HandSide::kLeft, std::nullopt));
+  input.position_m = Eigen::Vector3d(0.0, 0.0, -0.2);
+  input.time_sec = 0.01;
+  const auto right = mapper.update(HandSide::kRight, input);
+  ASSERT_TRUE(right);
+  const double right_x = point_from_msg(right->position).x();
+  EXPECT_GT(right_x, 0.1);
+  EXPECT_LT(right_x, 0.2);
+
+  // The left hand returns with fresh state and passes its first sample through unfiltered.
+  const auto left = mapper.update(HandSide::kLeft, input);
+  ASSERT_TRUE(left);
+  EXPECT_NEAR(point_from_msg(left->position).x(), 0.2, 1e-12);
+}
+
+TEST(PerSideMapper, ResetAllClearsBothSides) {
+  using leap_teleop::HandSide;
+  HandMapperConfig config = fast_config();
+  config.filter_min_cutoff_hz = 1.0;
+  leap_teleop::PerSideMapper mapper(config);
+  HandPoseInput input;
+  input.position_m = Eigen::Vector3d(0.0, 0.0, -0.1);
+  input.time_sec = 0.0;
+  mapper.update(HandSide::kLeft, input);
+  mapper.update(HandSide::kRight, input);
+  mapper.reset_all();
+  input.position_m = Eigen::Vector3d(0.0, 0.0, -0.2);
+  input.time_sec = 0.01;
+  EXPECT_NEAR(point_from_msg(mapper.update(HandSide::kLeft, input)->position).x(), 0.2, 1e-12);
+  EXPECT_NEAR(point_from_msg(mapper.update(HandSide::kRight, input)->position).x(), 0.2, 1e-12);
 }

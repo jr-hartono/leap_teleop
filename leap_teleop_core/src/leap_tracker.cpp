@@ -11,6 +11,7 @@
 #include <leap_teleop_msgs/msg/hand_pose.hpp>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <rclcpp/rclcpp.hpp>
 #include <stdexcept>
 #include <string>
@@ -63,7 +64,7 @@ constexpr auto kFrameTimeout = std::chrono::milliseconds(250);
 constexpr auto kDeviceWarnDelay = std::chrono::seconds(2);
 constexpr auto kDeviceErrorDelay = std::chrono::seconds(10);
 constexpr char kDeviceFrame[] = "leap_device_frame";
-constexpr char kHandFrame[] = "leap_teleop_frame";
+constexpr char kHandFrame[] = "leap_operator";
 
 // Names the service's tracking mode after the matching mount_mode value.
 const char* tracking_mode_name(eLeapTrackingMode mode) {
@@ -89,7 +90,7 @@ class LeapTrackerNode : public rclcpp::Node {
 
  private:
   void apply_tuning(const leap_tracker::Params& params);
-  void reset_mapper();
+  void reset_mappers();
   void poll_loop();
   void handle_event(const LEAP_CONNECTION_MESSAGE& message);
   void publish_tracking(const LEAP_TRACKING_EVENT* frame);
@@ -98,21 +99,22 @@ class LeapTrackerNode : public rclcpp::Node {
   double steady_seconds() const;
 
   rclcpp::Publisher<HandArray>::SharedPtr hands_pub_;
-  rclcpp::Publisher<HandPose>::SharedPtr target_pub_;
+  rclcpp::Publisher<HandPose>::SharedPtr left_pub_;
+  rclcpp::Publisher<HandPose>::SharedPtr right_pub_;
   rclcpp::TimerBase::SharedPtr idle_timer_;
   std::shared_ptr<leap_tracker::ParamListener> param_listener_;
   leap_tracker::Params current_params_;
-  std::unique_ptr<HandMapper> mapper_;
+  std::unique_ptr<PerSideMapper> mapper_;
   std::mutex mapper_mutex_;
   std::unique_ptr<LeapConnection> connection_;
   std::unique_ptr<std::thread> poll_thread_;
 
   std::atomic<bool> running_{false};
   std::atomic<bool> device_available_{false};
-  std::string target_side_ = Hand::RIGHT;
   eLeapTrackingMode tracking_mode_ = eLeapTrackingMode_Desktop;
   TrackingModeGuard mode_guard_;  // Used only on the poll thread.
-  std::uint32_t sequence_ = 0;
+  std::uint32_t left_sequence_ = 0;
+  std::uint32_t right_sequence_ = 0;
 
   std::mutex state_mutex_;
   const std::chrono::steady_clock::time_point start_time_ = std::chrono::steady_clock::now();
@@ -132,22 +134,21 @@ LeapTrackerNode::LeapTrackerNode(const rclcpp::NodeOptions& options)
 
   HandMapperConfig config;
   config.mount_mode = mount_mode;
-  config.yaw_deg = params.yaw;
   config.deadband_translation_m = params.deadband_translation;
   config.deadband_rotation_rad = degrees_to_radians(params.deadband_rotation);
   config.deadband_hysteresis = params.deadband_hysteresis;
   config.filter_min_cutoff_hz = params.filter_min_cutoff;
   config.filter_beta = params.filter_beta;
-  mapper_ = std::make_unique<HandMapper>(config);
+  mapper_ = std::make_unique<PerSideMapper>(config);
   param_listener_->setUserCallback(
       [this](const leap_tracker::Params& updated) { apply_tuning(updated); });
 
-  target_side_ = (params.side == "left") ? Hand::LEFT : Hand::RIGHT;
-
   hands_pub_ = create_publisher<HandArray>(
       "hands", rclcpp::QoS(rclcpp::KeepLast(5)).best_effort().durability_volatile());
-  target_pub_ = create_publisher<HandPose>("hand_pose",
-                                           rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
+  left_pub_ = create_publisher<HandPose>("hand_pose/left",
+                                         rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
+  right_pub_ = create_publisher<HandPose>("hand_pose/right",
+                                          rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
 
   idle_timer_ = create_wall_timer(kIdlePeriod, [this]() { publish_idle(); });
 
@@ -180,9 +181,9 @@ void LeapTrackerNode::apply_tuning(const leap_tracker::Params& params) {
   mapper_->set_tuning(config);
 }
 
-void LeapTrackerNode::reset_mapper() {
+void LeapTrackerNode::reset_mappers() {
   std::lock_guard<std::mutex> lock(mapper_mutex_);
-  mapper_->reset();
+  mapper_->reset_all();
 }
 
 LeapTrackerNode::~LeapTrackerNode() { stop(); }
@@ -256,7 +257,7 @@ void LeapTrackerNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
     case eLeapEventType_ConnectionLost:
       RCLCPP_WARN(this->get_logger(), "tracking service connection lost");
       device_available_.store(false);
-      reset_mapper();
+      reset_mappers();
       break;
 
     case eLeapEventType_Device:
@@ -270,13 +271,13 @@ void LeapTrackerNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
       RCLCPP_WARN(this->get_logger(), "device %u detached",
                   static_cast<unsigned int>(message.device_event->device.id));
       device_available_.store(false);
-      reset_mapper();
+      reset_mappers();
       break;
 
     case eLeapEventType_DeviceFailure:
       RCLCPP_WARN(this->get_logger(), "device failure reported");
       device_available_.store(false);
-      reset_mapper();
+      reset_mappers();
       break;
 
     case eLeapEventType_TrackingMode: {
@@ -316,9 +317,7 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
   array.framerate = frame->framerate;
   array.is_tracking = true;
 
-  Eigen::Vector3d selected_position = Eigen::Vector3d::Zero();
-  Eigen::Quaterniond selected_orientation = Eigen::Quaterniond::Identity();
-  bool selected_found = false;
+  std::optional<HandPoseInput> inputs[2];  // Indexed by HandSide.
 
   if (frame->pHands != nullptr) {
     array.hands.reserve(frame->nHands);
@@ -336,44 +335,44 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
       reported.palm.orientation.z = hand.palm.orientation.z;
       reported.palm.orientation.w = hand.palm.orientation.w;
 
-      if (reported.side == target_side_) {
-        selected_position =
-            Eigen::Vector3d(hand.palm.position.x, hand.palm.position.y, hand.palm.position.z) *
-            0.001;
-        selected_orientation =
-            normalized(Eigen::Quaterniond(hand.palm.orientation.w, hand.palm.orientation.x,
-                                          hand.palm.orientation.y, hand.palm.orientation.z));
-        selected_found = true;
-      }
+      HandPoseInput input;
+      input.position_m =
+          Eigen::Vector3d(hand.palm.position.x, hand.palm.position.y, hand.palm.position.z) * 0.001;
+      input.orientation =
+          normalized(Eigen::Quaterniond(hand.palm.orientation.w, hand.palm.orientation.x,
+                                        hand.palm.orientation.y, hand.palm.orientation.z));
+      input.time_sec = stamp.seconds();
+      inputs[reported.side == Hand::LEFT ? 0 : 1] = input;
       array.hands.push_back(reported);
     }
   }
 
-  HandPoseInput input;
-  HandPose target;
-  if (selected_found) {
-    input.position_m = selected_position;
-    input.orientation = selected_orientation;
-    input.time_sec = stamp.seconds();
-    input.side = target_side_;
-
-    target.header.stamp = stamp;
-    target.header.frame_id = kHandFrame;
-    target.side = target_side_;
-    {
-      std::lock_guard<std::mutex> lock(mapper_mutex_);
-      target.pose = mapper_->update(input);
+  HandPose targets[2];
+  std::optional<geometry_msgs::msg::Pose> poses[2];
+  {
+    std::lock_guard<std::mutex> lock(mapper_mutex_);
+    poses[0] = mapper_->update(HandSide::kLeft, inputs[0]);
+    poses[1] = mapper_->update(HandSide::kRight, inputs[1]);
+  }
+  for (int side = 0; side < 2; ++side) {
+    if (!poses[side]) {
+      continue;
     }
-    target.sequence = ++sequence_;
-  } else {
-    reset_mapper();
+    targets[side].header.stamp = stamp;
+    targets[side].header.frame_id = kHandFrame;
+    targets[side].side = side == 0 ? Hand::LEFT : Hand::RIGHT;
+    targets[side].pose = *poses[side];
+    targets[side].sequence = side == 0 ? ++left_sequence_ : ++right_sequence_;
   }
 
   {
     std::lock_guard<std::mutex> lock(state_mutex_);
     hands_pub_->publish(array);
-    if (selected_found) {
-      target_pub_->publish(target);
+    if (poses[0]) {
+      left_pub_->publish(targets[0]);
+    }
+    if (poses[1]) {
+      right_pub_->publish(targets[1]);
     }
     last_frame_time_ = std::chrono::steady_clock::now();
     missing_device_warned_ = false;

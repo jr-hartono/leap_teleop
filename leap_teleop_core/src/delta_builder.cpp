@@ -22,6 +22,15 @@ TransformDelta DeltaBuilder::compute(const geometry_msgs::msg::Pose& current,
 
 bool DeltaBuilder::latched() const { return latched_; }
 
+geometry_msgs::msg::Pose operator_pose_to_base(const geometry_msgs::msg::Pose& pose,
+                                               double yaw_deg) {
+  geometry_msgs::msg::Pose result;
+  result.position = point_to_msg(operator_position_to_base(point_from_msg(pose.position), yaw_deg));
+  result.orientation = quaternion_to_msg(
+      operator_orientation_to_base(quaternion_from_msg(pose.orientation), yaw_deg));
+  return result;
+}
+
 geometry_msgs::msg::Transform to_transform_msg(const TransformDelta& delta) {
   geometry_msgs::msg::Transform msg;
   msg.translation = vector_to_msg(delta.translation);

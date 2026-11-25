@@ -8,20 +8,6 @@ leap_tracker:
     read_only: true
     validation:
       one_of<>: [["desktop", "head_mounted"]]
-  side:
-    type: string
-    default_value: right
-    description: "Hand used for teleoperation: right | left."
-    read_only: true
-    validation:
-      one_of<>: [["right", "left"]]
-  yaw:
-    type: double
-    default_value: 0.0
-    description: "Yaw from device forward axis to robot's +x, in degrees."
-    read_only: true
-    validation:
-      bounds<>: [-180.0, 180.0]
   deadband_translation:
     type: double
     default_value: 0.002

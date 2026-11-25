@@ -56,6 +56,8 @@ class SupervisorNode : public rclcpp::Node {
     base_frame_ = params.base_frame;
     tracking_timeout_ = params.tracking_timeout;
     min_hand_age_ = params.min_hand_age;
+    yaw_deg_ = params.yaw;
+    side_ = params.side;
     current_params_ = params;
     translation_scale_ = params.translation_scale;
     rotation_scale_ = params.rotation_scale;
@@ -66,7 +68,7 @@ class SupervisorNode : public rclcpp::Node {
     fsm_ = std::make_unique<SupervisorFsm>(params.hold_timeout);
 
     hand_subscription_ = create_subscription<leap_teleop_msgs::msg::HandPose>(
-        "hand_pose", rclcpp::QoS(rclcpp::KeepLast(1)),
+        "hand_pose/" + side_, rclcpp::QoS(rclcpp::KeepLast(1)),
         [this](const leap_teleop_msgs::msg::HandPose::SharedPtr message) {
           on_hand_pose(*message);
         });
@@ -109,6 +111,7 @@ class SupervisorNode : public rclcpp::Node {
     have_hand_ = true;
     last_hand_time_ = time;
     latest_hand_ = message;
+    latest_hand_->pose = operator_pose_to_base(message.pose, yaw_deg_);
     publish_if_due(false);
   }
 
@@ -168,7 +171,7 @@ class SupervisorNode : public rclcpp::Node {
       target.header.stamp = now();
     }
     target.header.frame_id = base_frame_;
-    target.side = latest_hand_ ? latest_hand_->side : "";
+    target.side = side_;
     const std::string state_name = state_token(result.state);
     target.state = state_name;
     target.engaged = engaged;
@@ -195,6 +198,8 @@ class SupervisorNode : public rclcpp::Node {
   leap_teleop_supervisor::Params current_params_;
   std::atomic<double> translation_scale_{1.0};
   std::atomic<double> rotation_scale_{1.0};
+  std::string side_;
+  double yaw_deg_ = 0.0;
   double tracking_timeout_ = 0.15;
   double min_hand_age_ = 0.2;
   double last_publish_ = 0.0;

@@ -29,6 +29,10 @@ class DeltaBuilder {
   bool latched_ = false;
 };
 
+// Rotates a pose from the operator frame into the robot base frame by yaw about +z.
+geometry_msgs::msg::Pose operator_pose_to_base(const geometry_msgs::msg::Pose& pose,
+                                               double yaw_deg);
+
 geometry_msgs::msg::Transform to_transform_msg(const TransformDelta& delta);
 
 TransformDelta delta_from_transform_msg(const geometry_msgs::msg::Transform& msg);

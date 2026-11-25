@@ -30,6 +30,20 @@ leap_teleop_supervisor:
     read_only: true
     validation:
       bounds<>: [0.0, 60.0]
+  side:
+    type: string
+    default_value: right
+    description: "Hand used for teleoperation: right | left."
+    read_only: true
+    validation:
+      one_of<>: [["right", "left"]]
+  yaw:
+    type: double
+    default_value: 0.0
+    description: "Yaw from the operator's forward axis to the robot's +x, in degrees."
+    read_only: true
+    validation:
+      bounds<>: [-180.0, 180.0]
   translation_scale:
     type: double
     default_value: 1.0

@@ -21,7 +21,7 @@ Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo
 | Topic | Type | From | Content |
 |---|---|---|---|
 | `/leap_teleop/hands` | `HandArray` | tracker | All tracked hands in the device frame, for diagnostics |
-| `/leap_teleop/hand_pose` | `HandPose` | tracker | Filtered palm pose of the selected hand, in robot axes |
+| `/leap_teleop/hand_pose/left`, `/leap_teleop/hand_pose/right` | `HandPose` | tracker | Filtered palm pose of that hand, in the operator frame |
 | `/leap_teleop/deadman` | `DeadmanState` | deadman | Whether the deadman key is held |
 | `/leap_teleop/pose_delta` | `TeleopDelta` | supervisor | Pose change since engagement; the bridge's input |
 | `/leap_teleop/state` | `TeleopState` | supervisor | `idle`, `engaged` or `hold`, with the reason |
@@ -159,10 +159,10 @@ palm is edge-on to the camera.
 
 ## How it works
 
-The tracker maps the palm into the robot's base axes in two steps: from the controller's axes into
-an operator frame following [REP 103](https://www.ros.org/reps/rep-0103.html) (x forward, y left,
-z up), which depends on `mount_mode`, then rotated by `yaw`. It then filters the pose, without any
-scaling. When the key is pressed, the supervisor latches the hand pose and publishes the change
+The tracker maps each palm from the controller's axes into an operator frame following
+[REP 103](https://www.ros.org/reps/rep-0103.html) (x forward, y left, z up), which depends on
+`mount_mode`, and filters the pose. The supervisor rotates the pose of its `side` into the robot's
+base axes by `yaw`. When the key is pressed, it latches the hand pose and publishes the change
 since then, with the translation multiplied by `translation_scale` and the rotation angle
 multiplied by `rotation_scale`. The bridge latches the tool pose from TF on the same
 press, adds the translation, applies the rotation about the tool origin, and drives Servo with a P

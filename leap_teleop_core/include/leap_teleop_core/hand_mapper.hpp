@@ -2,9 +2,10 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <array>
 #include <cstdint>
 #include <geometry_msgs/msg/pose.hpp>
-#include <string>
+#include <optional>
 
 #include "leap_teleop_core/filters.hpp"
 
@@ -12,7 +13,6 @@ namespace leap_teleop {
 
 struct HandMapperConfig {
   MountMode mount_mode = MountMode::kDesktop;
-  double yaw_deg = 0.0;
   double deadband_translation_m = 0.002;
   double deadband_rotation_rad = 0.5 * kPi / 180.0;
   double deadband_hysteresis = 1.5;
@@ -24,9 +24,9 @@ struct HandPoseInput {
   Eigen::Vector3d position_m = Eigen::Vector3d::Zero();
   Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();
   double time_sec = 0.0;
-  std::string side;
 };
 
+// Device axes -> operator axes (REP 103), filtered. Yaw to the robot base is the supervisor's job.
 class HandMapper {
  public:
   explicit HandMapper(const HandMapperConfig& config);
@@ -44,6 +44,23 @@ class HandMapper {
   OrientationFilter orientation_filter_;
   TranslationDeadband translation_deadband_;
   RotationDeadband rotation_deadband_;
+};
+
+enum class HandSide { kLeft = 0, kRight = 1 };
+
+// One HandMapper per side, so a hand that disappears resets only its own filters and deadbands.
+class PerSideMapper {
+ public:
+  explicit PerSideMapper(const HandMapperConfig& config);
+
+  // A present hand is mapped; an absent one (nullopt) resets that side only and returns nullopt.
+  std::optional<geometry_msgs::msg::Pose> update(HandSide side,
+                                                 const std::optional<HandPoseInput>& input);
+  void set_tuning(const HandMapperConfig& config);
+  void reset_all();
+
+ private:
+  std::array<HandMapper, 2> mappers_;
 };
 
 }  // namespace leap_teleop
