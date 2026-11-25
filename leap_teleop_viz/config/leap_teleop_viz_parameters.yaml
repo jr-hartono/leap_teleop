@@ -1,0 +1,40 @@
+# Parameters of leap_teleop_viz, enforced by the generated ParamListener.
+
+leap_teleop_viz:
+  base_frame:
+    type: string
+    default_value: base_link
+    description: "TF frame of the markers. Must match the supervisor's base_frame."
+    read_only: true
+    validation:
+      not_empty<>: []
+  tool_frame:
+    type: string
+    default_value: tool0
+    description: "TF frame of the TCP. Must match the bridge's tool_frame."
+    read_only: true
+    validation:
+      not_empty<>: []
+  supervisor_node:
+    type: string
+    default_value: leap_teleop_supervisor
+    description: "Supervisor node to read the scales from, relative to this node's namespace."
+    read_only: true
+    validation:
+      not_empty<>: []
+  linear_arrow_scale:
+    type: double
+    default_value: 1.0
+    description: "Length of the linear twist arrow, in m per m/s."
+    read_only: false
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [10.0]
+  angular_arrow_scale:
+    type: double
+    default_value: 0.2
+    description: "Length of the angular twist arrow, in m per rad/s."
+    read_only: false
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [10.0]

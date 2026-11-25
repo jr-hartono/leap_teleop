@@ -38,6 +38,7 @@ jobs:
             --param-definition leap_teleop_core/config/leap_teleop_deadman_parameters.yaml \
             --param-definition leap_teleop_core/config/leap_teleop_supervisor_parameters.yaml \
             --param-definition leap_teleop_bridge/config/leap_moveit_servo_bridge_parameters.yaml \
+            --param-definition leap_teleop_viz/config/leap_teleop_viz_parameters.yaml \
             --config leap_teleop_bringup/config/example_arm.yaml \
             --strict
 

@@ -72,3 +72,17 @@
 
     # Log commands instead of publishing them. Overridden by the launch argument dry_run.
     dry_run: true
+
+/**/leap_teleop_viz:
+  ros__parameters:
+    # TF frame of the markers. Must match the supervisor's base_frame.
+    base_frame: base_link
+    # TF frame of the TCP. Must match the bridge's tool_frame.
+    tool_frame: tool0
+    # Supervisor node to read the scales from, relative to this node's namespace.
+    supervisor_node: leap_teleop_supervisor
+
+    # Length of the linear twist arrow, in m per m/s. (dynamic)
+    linear_arrow_scale: 1.0
+    # Length of the angular twist arrow, in m per rad/s. (dynamic)
+    angular_arrow_scale: 0.2

@@ -16,6 +16,7 @@ Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo
 | `leap_teleop_msgs` | Message definitions |
 | `leap_teleop_core` | `leap_tracker`, `leap_teleop_deadman`, `leap_teleop_supervisor` nodes |
 | `leap_teleop_bridge` | `leap_moveit_servo_bridge` node |
+| `leap_teleop_viz` | `leap_teleop_viz` node, RViz markers |
 | `leap_teleop_bringup` | Launch files and example configuration |
 
 | Topic | Type | From | Content |
@@ -26,6 +27,7 @@ Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo
 | `/leap_teleop/pose_delta` | `TeleopDelta` | supervisor | Pose change since engagement; the bridge's input |
 | `/leap_teleop/state` | `TeleopState` | supervisor | `idle`, `engaged` or `hold`, with the reason |
 | `/leap_teleop/command` | `geometry_msgs/TwistStamped` | bridge | Twist the bridge computed, also in dry run |
+| `/leap_teleop/markers` | `visualization_msgs/MarkerArray` | viz | RViz markers of the command |
 
 The bridge publishes `geometry_msgs/TwistStamped` on `cartesian_command_topic`
 (default `/servo_node/delta_twist_cmds`).
