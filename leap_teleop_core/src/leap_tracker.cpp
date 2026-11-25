@@ -18,6 +18,7 @@
 
 #include "leap_teleop_core/frames.hpp"
 #include "leap_teleop_core/hand_mapper.hpp"
+#include "leap_teleop_core/tracking_mode_guard.hpp"
 
 namespace leap_teleop {
 
@@ -64,6 +65,19 @@ constexpr auto kDeviceErrorDelay = std::chrono::seconds(10);
 constexpr char kDeviceFrame[] = "leap_device_frame";
 constexpr char kHandFrame[] = "leap_teleop_frame";
 
+const char* tracking_mode_name(eLeapTrackingMode mode) {
+  switch (mode) {
+    case eLeapTrackingMode_Desktop:
+      return "desktop";
+    case eLeapTrackingMode_HMD:
+      return "hmd";
+    case eLeapTrackingMode_ScreenTop:
+      return "screentop";
+    default:
+      return "unknown";
+  }
+}
+
 class LeapTrackerNode : public rclcpp::Node {
  public:
   explicit LeapTrackerNode(const rclcpp::NodeOptions& options);
@@ -79,7 +93,8 @@ class LeapTrackerNode : public rclcpp::Node {
   void handle_event(const LEAP_CONNECTION_MESSAGE& message);
   void publish_tracking(const LEAP_TRACKING_EVENT* frame);
   void publish_idle();
-  void set_desktop_mode();
+  void apply_mode_action(TrackingModeGuard::Action action);
+  double steady_seconds() const;
 
   rclcpp::Publisher<HandArray>::SharedPtr hands_pub_;
   rclcpp::Publisher<HandPose>::SharedPtr target_pub_;
@@ -96,6 +111,8 @@ class LeapTrackerNode : public rclcpp::Node {
   std::atomic<bool> running_{false};
   std::atomic<bool> device_available_{false};
   std::string target_side_ = Hand::RIGHT;
+  eLeapTrackingMode tracking_mode_ = eLeapTrackingMode_Desktop;
+  TrackingModeGuard mode_guard_;  // Used only on the poll thread.
   std::uint32_t sequence_ = 0;
 
   std::mutex state_mutex_;
@@ -110,13 +127,12 @@ LeapTrackerNode::LeapTrackerNode(const rclcpp::NodeOptions& options)
   param_listener_ = std::make_shared<leap_tracker::ParamListener>(this);
   const auto params = param_listener_->get_params();
   current_params_ = params;
-  if (params.mount_mode != "desktop") {
-    throw std::invalid_argument(
-        "parameter 'mount_mode': only 'desktop' is implemented; "
-        "'head_mounted' requires head pose composition");
-  }
+  const MountMode mount_mode = mount_mode_from_string(params.mount_mode);
+  tracking_mode_ =
+      (mount_mode == MountMode::kHeadMounted) ? eLeapTrackingMode_HMD : eLeapTrackingMode_Desktop;
 
   HandMapperConfig config;
+  config.mount_mode = mount_mode;
   config.yaw_deg = params.yaw;
   config.translation_scale = params.translation_scale;
   config.deadband_translation_m = params.deadband_translation;
@@ -193,11 +209,25 @@ void LeapTrackerNode::stop() {
   }
 }
 
-void LeapTrackerNode::set_desktop_mode() {
-  const eLeapRS result = LeapSetTrackingMode(connection_->handle(), eLeapTrackingMode_Desktop);
-  if (LEAP_FAILED(result)) {
-    RCLCPP_WARN(this->get_logger(), "LeapSetTrackingMode(desktop) failed with code %d",
-                static_cast<int>(result));
+double LeapTrackerNode::steady_seconds() const {
+  return std::chrono::duration<double>(std::chrono::steady_clock::now() - start_time_).count();
+}
+
+// The service keeps one tracking mode for all applications and keeps it after they exit, so the
+// tracker always requests its own. The result arrives asynchronously as a TrackingMode event.
+void LeapTrackerNode::apply_mode_action(TrackingModeGuard::Action action) {
+  if (action == TrackingModeGuard::Action::kRequest) {
+    const eLeapRS result = LeapSetTrackingMode(connection_->handle(), tracking_mode_);
+    if (LEAP_FAILED(result)) {
+      RCLCPP_WARN(this->get_logger(), "LeapSetTrackingMode(%s) failed with code %d",
+                  tracking_mode_name(tracking_mode_), static_cast<int>(result));
+    }
+  } else if (action == TrackingModeGuard::Action::kGiveUp) {
+    RCLCPP_ERROR(this->get_logger(),
+                 "the tracking service did not stay in %s mode; another application, such as a "
+                 "second leap_tracker, may be changing it. Tracking continues with lower quality; "
+                 "stop the other application and restart leap_tracker",
+                 tracking_mode_name(tracking_mode_));
   }
 }
 
@@ -207,6 +237,7 @@ void LeapTrackerNode::poll_loop() {
   while (running_.load(std::memory_order_relaxed)) {
     message.size = sizeof(message);
     const eLeapRS result = LeapPollConnection(connection_->handle(), kPollTimeoutMs, &message);
+    apply_mode_action(mode_guard_.on_tick(steady_seconds()));
     if (LEAP_FAILED(result)) {
       if (result != eLeapRS_Timeout) {
         RCLCPP_WARN_THROTTLE(this->get_logger(), *get_clock(), 5000,
@@ -225,7 +256,7 @@ void LeapTrackerNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
   switch (message.type) {
     case eLeapEventType_Connection:
       RCLCPP_INFO(this->get_logger(), "tracking service connected");
-      set_desktop_mode();
+      apply_mode_action(mode_guard_.restart(steady_seconds()));
       break;
 
     case eLeapEventType_ConnectionLost:
@@ -238,7 +269,7 @@ void LeapTrackerNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
       RCLCPP_INFO(this->get_logger(), "device %u attached",
                   static_cast<unsigned int>(message.device_event->device.id));
       device_available_.store(true);
-      set_desktop_mode();
+      apply_mode_action(mode_guard_.restart(steady_seconds()));
       break;
 
     case eLeapEventType_DeviceLost:
@@ -254,13 +285,17 @@ void LeapTrackerNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
       reset_mapper();
       break;
 
-    case eLeapEventType_TrackingMode:
-      if (message.tracking_mode_event->current_tracking_mode != eLeapTrackingMode_Desktop) {
-        RCLCPP_WARN(this->get_logger(), "tracking mode %d is not desktop; requesting desktop mode",
-                    static_cast<int>(message.tracking_mode_event->current_tracking_mode));
-        set_desktop_mode();
+    case eLeapEventType_TrackingMode: {
+      const eLeapTrackingMode current = message.tracking_mode_event->current_tracking_mode;
+      if (current == tracking_mode_) {
+        RCLCPP_INFO(this->get_logger(), "tracking mode is %s", tracking_mode_name(current));
+      } else {
+        RCLCPP_WARN(this->get_logger(), "tracking mode is %s, expected %s",
+                    tracking_mode_name(current), tracking_mode_name(tracking_mode_));
       }
+      apply_mode_action(mode_guard_.on_mode(current == tracking_mode_, steady_seconds()));
       break;
+    }
 
     case eLeapEventType_Tracking:
       publish_tracking(message.tracking_event);

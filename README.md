@@ -102,7 +102,8 @@ command.
      rotations pivot about its origin.
    - `cartesian_command_topic`, matching Servo's `cartesian_command_in_topic`.
    - `yaw`: 0 when the robot and the operator face the same way, 180 when the arm faces the
-     operator across the desk. The controller must lie flat.
+     operator across the desk. With `mount_mode: desktop` the controller must lie flat; for a
+     controller worn on the head, see [Head-mounted controller](#head-mounted-controller).
    - `max_linear_velocity: 0.05` for the first runs.
 3. Launch. `dry_run` defaults to true, which logs commands instead of publishing them:
 
@@ -158,12 +159,14 @@ palm is edge-on to the camera.
 
 ## How it works
 
-The tracker maps the palm into the robot's base axes (hand away from you → +x, up → +z, right →
-−y, then rotated by `yaw`), scales the position by `translation_scale`, and filters it. When the
-key is pressed, the supervisor latches the hand pose and publishes the change since then, with the
-rotation angle multiplied by the tracker's `rotation_scale` (sent with each hand pose). The bridge
-latches the tool pose from TF on the same press, adds the translation, applies the rotation about
-the tool origin, and drives Servo with a P controller clamped to the speed caps.
+The tracker maps the palm into the robot's base axes in two steps: from the controller's axes into
+an operator frame following [REP 103](https://www.ros.org/reps/rep-0103.html) (x forward, y left,
+z up), which depends on `mount_mode`, then rotated by `yaw`. It then scales the position by
+`translation_scale` and filters the pose. When the key is pressed, the supervisor latches the hand
+pose and publishes the change since then, with the rotation angle multiplied by the tracker's
+`rotation_scale` (sent with each hand pose). The bridge latches the tool pose from TF on the same
+press, adds the translation, applies the rotation about the tool origin, and drives Servo with a P
+controller clamped to the speed caps.
 
 | State | When | Motion |
 |---|---|---|
@@ -186,7 +189,6 @@ run the tracker and deadman on the host and the rest in the container.
 - Gripper control with a pinch gesture, with a demo.
 - Dual-arm control: the left and right hands each drive one arm.
 - Demo with the arms of a Unitree G1 humanoid.
-- Head-mounted controller (`mount_mode: head_mounted`).
 - Visualization in RViz of the detected hand pose before and after scaling, and of the twist
   command sent to the robot.
 

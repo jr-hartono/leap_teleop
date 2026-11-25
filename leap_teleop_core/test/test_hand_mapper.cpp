@@ -54,6 +54,17 @@ TEST(HandMapper, YawRotatesTheTranslationMapping) {
                   .isApprox(Eigen::Vector3d(-0.1, 0.0, 0.0), 1e-12));
 }
 
+TEST(HandMapper, HeadMountedForwardBecomesForward) {
+  HandMapperConfig config = fast_config();
+  config.mount_mode = leap_teleop::MountMode::kHeadMounted;
+  HandMapper mapper(config);
+  HandPoseInput input;
+  input.position_m = Eigen::Vector3d(0.0, 0.1, 0.0);
+  input.time_sec = 0.0;
+  EXPECT_TRUE(point_from_msg(mapper.update(input).position)
+                  .isApprox(Eigen::Vector3d(0.1, 0.0, 0.0), 1e-12));
+}
+
 TEST(HandMapper, TranslationGainScalesTheHandMotion) {
   HandMapperConfig config = fast_config();
   config.translation_scale = 0.5;

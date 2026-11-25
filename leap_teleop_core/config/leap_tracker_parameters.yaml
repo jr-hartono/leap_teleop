@@ -4,10 +4,10 @@ leap_tracker:
   mount_mode:
     type: string
     default_value: desktop
-    description: "Device mounting mode. Currently only `desktop` is implemented."
+    description: "Device mounting: desktop | head-mounted."
     read_only: true
     validation:
-      one_of<>: [["desktop"]]
+      one_of<>: [["desktop", "head_mounted"]]
   side:
     type: string
     default_value: right

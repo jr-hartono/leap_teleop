@@ -1,36 +1,136 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
+#include <stdexcept>
+
 #include "leap_teleop_core/frames.hpp"
 
 using leap_teleop::axis_angle;
 using leap_teleop::degrees_to_radians;
+using leap_teleop::device_orientation_to_operator;
+using leap_teleop::device_position_to_operator;
 using leap_teleop::device_to_base_rotation;
+using leap_teleop::leap_orientation_to_base;
 using leap_teleop::leap_position_to_base;
+using leap_teleop::mount_mode_from_string;
+using leap_teleop::MountMode;
+using leap_teleop::operator_orientation_to_base;
+using leap_teleop::operator_position_to_base;
 using leap_teleop::quaternion_power;
 using leap_teleop::rotation_angle;
 using leap_teleop::slerp;
 using leap_teleop::world_delta;
 
+namespace {
+
+// Equal as rotations, so q and -q match.
+bool same_rotation(const Eigen::Quaterniond& a, const Eigen::Quaterniond& b) {
+  return std::abs(a.normalized().dot(b.normalized())) > 1.0 - 1e-12;
+}
+
+}  // namespace
+
 TEST(Frames, RotationIsOrthonormalWithDeterminantOne) {
-  for (const double yaw : {0.0, 37.0, 180.0, -90.0}) {
-    const Eigen::Matrix3d rotation = device_to_base_rotation(yaw);
-    EXPECT_TRUE((rotation.transpose() * rotation).isApprox(Eigen::Matrix3d::Identity(), 1e-12));
-    EXPECT_NEAR(rotation.determinant(), 1.0, 1e-12);
+  for (const MountMode mode : {MountMode::kDesktop, MountMode::kHeadMounted}) {
+    for (const double yaw : {0.0, 37.0, 180.0, -90.0}) {
+      const Eigen::Matrix3d rotation = device_to_base_rotation(yaw, mode);
+      EXPECT_TRUE((rotation.transpose() * rotation).isApprox(Eigen::Matrix3d::Identity(), 1e-12));
+      EXPECT_NEAR(rotation.determinant(), 1.0, 1e-12);
+    }
   }
 }
 
+TEST(Frames, ParsesMountMode) {
+  EXPECT_EQ(mount_mode_from_string("desktop"), MountMode::kDesktop);
+  EXPECT_EQ(mount_mode_from_string("head_mounted"), MountMode::kHeadMounted);
+  EXPECT_THROW(mount_mode_from_string("screentop"), std::invalid_argument);
+}
+
 TEST(Frames, DeviceAxesMapToBaseAxesAtZeroYaw) {
-  EXPECT_TRUE(leap_position_to_base(Eigen::Vector3d(0.0, 0.0, -1.0), 0.0)
+  EXPECT_TRUE(leap_position_to_base(Eigen::Vector3d(0.0, 0.0, -1.0), 0.0, MountMode::kDesktop)
                   .isApprox(Eigen::Vector3d(1.0, 0.0, 0.0), 1e-12));
-  EXPECT_TRUE(leap_position_to_base(Eigen::Vector3d(0.0, 1.0, 0.0), 0.0)
+  EXPECT_TRUE(leap_position_to_base(Eigen::Vector3d(0.0, 1.0, 0.0), 0.0, MountMode::kDesktop)
                   .isApprox(Eigen::Vector3d(0.0, 0.0, 1.0), 1e-12));
-  EXPECT_TRUE(leap_position_to_base(Eigen::Vector3d(1.0, 0.0, 0.0), 0.0)
+  EXPECT_TRUE(leap_position_to_base(Eigen::Vector3d(1.0, 0.0, 0.0), 0.0, MountMode::kDesktop)
                   .isApprox(Eigen::Vector3d(0.0, -1.0, 0.0), 1e-12));
 }
 
 TEST(Frames, YawRotatesTheMappingAboutBaseZ) {
-  EXPECT_TRUE(leap_position_to_base(Eigen::Vector3d(0.0, 0.0, -1.0), 180.0)
+  EXPECT_TRUE(leap_position_to_base(Eigen::Vector3d(0.0, 0.0, -1.0), 180.0, MountMode::kDesktop)
                   .isApprox(Eigen::Vector3d(-1.0, 0.0, 0.0), 1e-12));
+}
+
+// Head-mounted device axes: +y out of the cameras (forward), +x to the operator's left, +z down.
+TEST(Frames, HeadMountedHandMotionMapsToOperatorAxes) {
+  const MountMode mode = MountMode::kHeadMounted;
+  const Eigen::Vector3d forward(0.0, 1.0, 0.0);
+  const Eigen::Vector3d up(0.0, 0.0, -1.0);
+  const Eigen::Vector3d right(-1.0, 0.0, 0.0);
+  EXPECT_TRUE(leap_position_to_base(forward, 0.0, mode).isApprox(Eigen::Vector3d::UnitX(), 1e-12));
+  EXPECT_TRUE(leap_position_to_base(up, 0.0, mode).isApprox(Eigen::Vector3d::UnitZ(), 1e-12));
+  EXPECT_TRUE(leap_position_to_base(right, 0.0, mode).isApprox(-Eigen::Vector3d::UnitY(), 1e-12));
+}
+
+TEST(Frames, HeadMountedAppliesYawAfterTheMountMapping) {
+  const Eigen::Vector3d forward(0.0, 1.0, 0.0);
+  EXPECT_TRUE(leap_position_to_base(forward, 90.0, MountMode::kHeadMounted)
+                  .isApprox(Eigen::Vector3d::UnitY(), 1e-12));
+  EXPECT_TRUE(leap_position_to_base(forward, 180.0, MountMode::kHeadMounted)
+                  .isApprox(-Eigen::Vector3d::UnitX(), 1e-12));
+}
+
+TEST(Frames, HeadMountedWristRotationMapsToBaseAxes) {
+  const MountMode mode = MountMode::kHeadMounted;
+  const double angle = degrees_to_radians(30.0);
+  // Roll about the forward-pointing device +y is a roll about base +x.
+  EXPECT_TRUE(same_rotation(leap_orientation_to_base(axis_angle(0.0, 1.0, 0.0, angle), 0.0, mode),
+                            axis_angle(1.0, 0.0, 0.0, angle)));
+  // Turning about the downward-pointing device +z is a turn about base -z.
+  EXPECT_TRUE(same_rotation(leap_orientation_to_base(axis_angle(0.0, 0.0, 1.0, angle), 0.0, mode),
+                            axis_angle(0.0, 0.0, 1.0, -angle)));
+  // Pitch about the left-pointing device +x is a pitch about base +y.
+  EXPECT_TRUE(same_rotation(leap_orientation_to_base(axis_angle(1.0, 0.0, 0.0, angle), 0.0, mode),
+                            axis_angle(0.0, 1.0, 0.0, angle)));
+  // With yaw 90, the forward roll axis becomes base +y.
+  EXPECT_TRUE(same_rotation(leap_orientation_to_base(axis_angle(0.0, 1.0, 0.0, angle), 90.0, mode),
+                            axis_angle(0.0, 1.0, 0.0, angle)));
+}
+
+TEST(Frames, BothMountsAgreeInOperatorAxes) {
+  // The same physical hand motion, seen by each mount, gives the same operator-frame motion.
+  const Eigen::Vector3d desktop_forward(0.0, 0.0, -1.0);
+  const Eigen::Vector3d head_forward(0.0, 1.0, 0.0);
+  EXPECT_TRUE(
+      device_position_to_operator(desktop_forward, MountMode::kDesktop)
+          .isApprox(device_position_to_operator(head_forward, MountMode::kHeadMounted), 1e-12));
+  const double angle = degrees_to_radians(20.0);
+  // Rolling the palm about the forward axis.
+  EXPECT_TRUE(same_rotation(
+      device_orientation_to_operator(axis_angle(0.0, 0.0, -1.0, angle), MountMode::kDesktop),
+      device_orientation_to_operator(axis_angle(0.0, 1.0, 0.0, angle), MountMode::kHeadMounted)));
+}
+
+TEST(Frames, CombinedMappingIsTheTwoStepsInOrder) {
+  const Eigen::Vector3d position(0.1, -0.2, 0.3);
+  const Eigen::Quaterniond orientation = axis_angle(1.0, 2.0, -0.5, 0.7);
+  for (const MountMode mode : {MountMode::kDesktop, MountMode::kHeadMounted}) {
+    EXPECT_TRUE(
+        leap_position_to_base(position, 37.0, mode)
+            .isApprox(operator_position_to_base(device_position_to_operator(position, mode), 37.0),
+                      1e-12));
+    EXPECT_TRUE(same_rotation(
+        leap_orientation_to_base(orientation, 37.0, mode),
+        operator_orientation_to_base(device_orientation_to_operator(orientation, mode), 37.0)));
+  }
+}
+
+TEST(Frames, OperatorToBaseIsOnlyYaw) {
+  EXPECT_TRUE(operator_position_to_base(Eigen::Vector3d::UnitX(), 0.0)
+                  .isApprox(Eigen::Vector3d::UnitX(), 1e-12));
+  EXPECT_TRUE(operator_position_to_base(Eigen::Vector3d::UnitX(), 90.0)
+                  .isApprox(Eigen::Vector3d::UnitY(), 1e-12));
+  EXPECT_TRUE(operator_position_to_base(Eigen::Vector3d::UnitZ(), 90.0)
+                  .isApprox(Eigen::Vector3d::UnitZ(), 1e-12));
 }
 
 TEST(Frames, QuaternionPowerScalesTheAngle) {

@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
+#include <string>
 
 namespace leap_teleop {
 
@@ -9,10 +11,50 @@ double degrees_to_radians(double degrees) { return degrees * kPi / 180.0; }
 
 double radians_to_degrees(double radians) { return radians * 180.0 / kPi; }
 
-Eigen::Matrix3d leap_to_ros_rotation() {
+namespace {
+
+// Expresses a rotation given in one frame in another frame: R * q * R^T.
+Eigen::Quaterniond change_basis(const Eigen::Matrix3d& rotation,
+                                const Eigen::Quaterniond& orientation) {
+  const Eigen::Matrix3d in_target =
+      rotation * normalized(orientation).toRotationMatrix() * rotation.transpose();
+  return normalized(Eigen::Quaterniond(in_target));
+}
+
+}  // namespace
+
+MountMode mount_mode_from_string(const std::string& name) {
+  if (name == "desktop") {
+    return MountMode::kDesktop;
+  }
+  if (name == "head_mounted") {
+    return MountMode::kHeadMounted;
+  }
+  throw std::invalid_argument("unknown mount_mode '" + name + "'");
+}
+
+Eigen::Matrix3d device_to_operator_rotation(MountMode mode) {
+  // Leap device axes: +x along the camera baseline, +y out of the cameras, +z towards the operator
+  // when on a desk. LeapC reports hands in these device axes in every tracking mode.
   Eigen::Matrix3d rotation;
-  rotation << 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0, 1.0, 0.0;
+  if (mode == MountMode::kHeadMounted) {
+    // Cameras forward: forward = +y, left = +x, up = -z. Ultraleap's XR convention, the
+    // Euler(-90, 180, 0) device rotation in its Unity plugin's LeapXRServiceProvider.
+    rotation << 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, -1.0;
+  } else {
+    // Cameras up: forward = -z, left = -x, up = +y.
+    rotation << 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0, 1.0, 0.0;
+  }
   return rotation;
+}
+
+Eigen::Vector3d device_position_to_operator(const Eigen::Vector3d& position, MountMode mode) {
+  return device_to_operator_rotation(mode) * position;
+}
+
+Eigen::Quaterniond device_orientation_to_operator(const Eigen::Quaterniond& orientation,
+                                                  MountMode mode) {
+  return change_basis(device_to_operator_rotation(mode), orientation);
 }
 
 Eigen::Matrix3d yaw_rotation(double yaw_deg) {
@@ -20,19 +62,27 @@ Eigen::Matrix3d yaw_rotation(double yaw_deg) {
       .toRotationMatrix();
 }
 
-Eigen::Matrix3d device_to_base_rotation(double yaw_deg) {
-  return yaw_rotation(yaw_deg) * leap_to_ros_rotation();
+Eigen::Vector3d operator_position_to_base(const Eigen::Vector3d& position, double yaw_deg) {
+  return yaw_rotation(yaw_deg) * position;
 }
 
-Eigen::Vector3d leap_position_to_base(const Eigen::Vector3d& position_m, double yaw_deg) {
-  return device_to_base_rotation(yaw_deg) * position_m;
+Eigen::Quaterniond operator_orientation_to_base(const Eigen::Quaterniond& orientation,
+                                                double yaw_deg) {
+  return change_basis(yaw_rotation(yaw_deg), orientation);
 }
 
-Eigen::Quaterniond leap_orientation_to_base(const Eigen::Quaterniond& orientation, double yaw_deg) {
-  const Eigen::Matrix3d rotation = device_to_base_rotation(yaw_deg);
-  const Eigen::Matrix3d in_base =
-      rotation * normalized(orientation).toRotationMatrix() * rotation.transpose();
-  return normalized(Eigen::Quaterniond(in_base));
+Eigen::Matrix3d device_to_base_rotation(double yaw_deg, MountMode mode) {
+  return yaw_rotation(yaw_deg) * device_to_operator_rotation(mode);
+}
+
+Eigen::Vector3d leap_position_to_base(const Eigen::Vector3d& position_m, double yaw_deg,
+                                      MountMode mode) {
+  return operator_position_to_base(device_position_to_operator(position_m, mode), yaw_deg);
+}
+
+Eigen::Quaterniond leap_orientation_to_base(const Eigen::Quaterniond& orientation, double yaw_deg,
+                                            MountMode mode) {
+  return operator_orientation_to_base(device_orientation_to_operator(orientation, mode), yaw_deg);
 }
 
 Eigen::Quaterniond normalized(const Eigen::Quaterniond& q) {

@@ -3,7 +3,7 @@
 
 leap_tracker:
   ros__parameters:
-    # Device mounting mode. Currently only `desktop` is implemented.
+    # Device mounting: desktop | head-mounted.
     mount_mode: desktop
     # Hand used for teleoperation: right | left.
     side: right

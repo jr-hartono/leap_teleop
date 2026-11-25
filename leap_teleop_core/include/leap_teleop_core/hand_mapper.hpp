@@ -11,6 +11,7 @@
 namespace leap_teleop {
 
 struct HandMapperConfig {
+  MountMode mount_mode = MountMode::kDesktop;
   double yaw_deg = 0.0;
   double translation_scale = 1.0;
   double deadband_translation_m = 0.002;
