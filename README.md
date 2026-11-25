@@ -159,10 +159,11 @@ palm is edge-on to the camera.
 ## How it works
 
 The tracker maps the palm into the robot's base axes (hand away from you → +x, up → +z, right →
-−y, then rotated by `yaw`), and scales and filters it. When the key is pressed, the supervisor
-latches the hand pose and publishes the change since then. The bridge latches the tool pose from
-TF on the same press, adds the translation, applies the rotation about the tool origin, and
-drives Servo with a P controller clamped to the speed caps.
+−y, then rotated by `yaw`), scales the position by `translation_scale`, and filters it. When the
+key is pressed, the supervisor latches the hand pose and publishes the change since then, with the
+rotation angle multiplied by the tracker's `rotation_scale` (sent with each hand pose). The bridge
+latches the tool pose from TF on the same press, adds the translation, applies the rotation about
+the tool origin, and drives Servo with a P controller clamped to the speed caps.
 
 | State | When | Motion |
 |---|---|---|

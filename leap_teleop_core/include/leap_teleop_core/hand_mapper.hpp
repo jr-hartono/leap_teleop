@@ -13,7 +13,6 @@ namespace leap_teleop {
 struct HandMapperConfig {
   double yaw_deg = 0.0;
   double translation_scale = 1.0;
-  double rotation_scale = 1.0;
   double deadband_translation_m = 0.002;
   double deadband_rotation_rad = 0.5 * kPi / 180.0;
   double deadband_hysteresis = 1.5;

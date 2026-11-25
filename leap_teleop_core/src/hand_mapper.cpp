@@ -21,8 +21,10 @@ geometry_msgs::msg::Pose HandMapper::update(const HandPoseInput& input) {
   const Eigen::Vector3d with_deadband = translation_deadband_.filter(filtered, input.time_sec);
   const Eigen::Vector3d output_position = config_.translation_scale * with_deadband;
 
-  const Eigen::Quaterniond scaled = quaternion_power(input.orientation, config_.rotation_scale);
-  const Eigen::Quaterniond in_base_orientation = leap_orientation_to_base(scaled, config_.yaw_deg);
+  // rotation_scale is not applied here: scaling an absolute orientation does not scale the turn
+  // since engagement. DeltaBuilder::compute scales that delta instead.
+  const Eigen::Quaterniond in_base_orientation =
+      leap_orientation_to_base(input.orientation, config_.yaw_deg);
   const Eigen::Quaterniond filtered_orientation =
       orientation_filter_.filter(in_base_orientation, input.time_sec);
   const Eigen::Quaterniond output_orientation =
@@ -36,7 +38,6 @@ geometry_msgs::msg::Pose HandMapper::update(const HandPoseInput& input) {
 
 void HandMapper::set_tuning(const HandMapperConfig& config) {
   config_.translation_scale = config.translation_scale;
-  config_.rotation_scale = config.rotation_scale;
   config_.deadband_translation_m = config.deadband_translation_m;
   config_.deadband_rotation_rad = config.deadband_rotation_rad;
   config_.deadband_hysteresis = config.deadband_hysteresis;

@@ -112,16 +112,12 @@ TEST(HandMapper, SetTuningDoesNotChangeYaw) {
   EXPECT_NEAR(point_from_msg(mapper.update(input).position).x(), -0.2, 1e-12);
 }
 
-TEST(HandMapper, RotationGainScalesTheWristMotion) {
-  for (const double gain : {1.0, 2.0, 0.5}) {
-    HandMapperConfig config = fast_config();
-    config.rotation_scale = gain;
-    HandMapper mapper(config);
-    HandPoseInput input;
-    input.orientation = axis_angle(0.0, 0.0, 1.0, degrees_to_radians(30.0));
-    input.time_sec = 0.0;
-    const auto pose = mapper.update(input);
-    EXPECT_NEAR(rotation_angle(leap_teleop::quaternion_from_msg(pose.orientation)),
-                degrees_to_radians(30.0 * gain), 1e-12);
-  }
+TEST(HandMapper, OrientationIsNotScaled) {
+  HandMapper mapper(fast_config());
+  HandPoseInput input;
+  input.orientation = axis_angle(0.0, 0.0, 1.0, degrees_to_radians(30.0));
+  input.time_sec = 0.0;
+  const auto pose = mapper.update(input);
+  EXPECT_NEAR(rotation_angle(leap_teleop::quaternion_from_msg(pose.orientation)),
+              degrees_to_radians(30.0), 1e-12);
 }

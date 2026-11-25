@@ -8,14 +8,15 @@ void DeltaBuilder::latch(const geometry_msgs::msg::Pose& pose) {
   latched_ = true;
 }
 
-TransformDelta DeltaBuilder::compute(const geometry_msgs::msg::Pose& current) const {
+TransformDelta DeltaBuilder::compute(const geometry_msgs::msg::Pose& current,
+                                     double rotation_scale) const {
   TransformDelta delta;
   if (!latched_) {
     return delta;
   }
   delta.translation = point_from_msg(current.position) - latched_position_;
   const Eigen::Quaterniond orientation = quaternion_from_msg(current.orientation);
-  delta.rotation = world_delta(orientation, latched_orientation_);
+  delta.rotation = quaternion_power(world_delta(orientation, latched_orientation_), rotation_scale);
   return delta;
 }
 

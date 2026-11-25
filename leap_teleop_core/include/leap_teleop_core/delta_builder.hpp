@@ -17,7 +17,9 @@ struct TransformDelta {
 class DeltaBuilder {
  public:
   void latch(const geometry_msgs::msg::Pose& pose);
-  [[nodiscard]] TransformDelta compute(const geometry_msgs::msg::Pose& current) const;
+  // rotation_scale multiplies the rotation angle since the latch, about the same axis.
+  [[nodiscard]] TransformDelta compute(const geometry_msgs::msg::Pose& current,
+                                       double rotation_scale = 1.0) const;
   [[nodiscard]] bool latched() const;
 
  private:

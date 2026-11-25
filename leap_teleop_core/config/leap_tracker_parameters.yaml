@@ -33,7 +33,7 @@ leap_tracker:
   rotation_scale:
     type: double
     default_value: 1.0
-    description: "Hand-to-tool rotation ratio."
+    description: "Hand-to-tool rotation ratio, applied by the supervisor to the hand rotation since the key press."
     read_only: false
     validation:
       gt<>: [0.0]

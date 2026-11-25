@@ -91,6 +91,8 @@ class LeapTrackerNode : public rclcpp::Node {
   std::unique_ptr<LeapConnection> connection_;
   std::unique_ptr<std::thread> poll_thread_;
 
+  // Published with each hand pose; the supervisor applies it to the rotation since engagement.
+  std::atomic<double> rotation_scale_{1.0};
   std::atomic<bool> running_{false};
   std::atomic<bool> device_available_{false};
   std::string target_side_ = Hand::RIGHT;
@@ -117,13 +119,13 @@ LeapTrackerNode::LeapTrackerNode(const rclcpp::NodeOptions& options)
   HandMapperConfig config;
   config.yaw_deg = params.yaw;
   config.translation_scale = params.translation_scale;
-  config.rotation_scale = params.rotation_scale;
   config.deadband_translation_m = params.deadband_translation;
   config.deadband_rotation_rad = degrees_to_radians(params.deadband_rotation);
   config.deadband_hysteresis = params.deadband_hysteresis;
   config.filter_min_cutoff_hz = params.filter_min_cutoff;
   config.filter_beta = params.filter_beta;
   mapper_ = std::make_unique<HandMapper>(config);
+  rotation_scale_ = params.rotation_scale;
   param_listener_->setUserCallback(
       [this](const leap_tracker::Params& updated) { apply_tuning(updated); });
 
@@ -155,10 +157,10 @@ void LeapTrackerNode::apply_tuning(const leap_tracker::Params& params) {
   log_change("filter_min_cutoff", current_params_.filter_min_cutoff, params.filter_min_cutoff);
   log_change("filter_beta", current_params_.filter_beta, params.filter_beta);
   current_params_ = params;
+  rotation_scale_ = params.rotation_scale;
 
   HandMapperConfig config;
   config.translation_scale = params.translation_scale;
-  config.rotation_scale = params.rotation_scale;
   config.deadband_translation_m = params.deadband_translation;
   config.deadband_rotation_rad = degrees_to_radians(params.deadband_rotation);
   config.deadband_hysteresis = params.deadband_hysteresis;
@@ -328,6 +330,7 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
     target.header.stamp = stamp;
     target.header.frame_id = kHandFrame;
     target.side = target_side_;
+    target.rotation_scale = rotation_scale_;
     {
       std::lock_guard<std::mutex> lock(mapper_mutex_);
       target.pose = mapper_->update(input);

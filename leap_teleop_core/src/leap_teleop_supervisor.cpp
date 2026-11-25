@@ -33,6 +33,8 @@ bool finite_pose(const geometry_msgs::msg::Pose& pose) {
          std::isfinite(pose.orientation.w);
 }
 
+bool valid_rotation_scale(double scale) { return std::isfinite(scale) && scale > 0.0; }
+
 std::string state_token(State state) {
   switch (state) {
     case State::kIdle:
@@ -115,6 +117,8 @@ class SupervisorNode : public rclcpp::Node {
         reason = "invalid_sequence";
       } else if (!finite_pose(latest_hand_->pose)) {
         reason = "invalid_pose";
+      } else if (!valid_rotation_scale(latest_hand_->rotation_scale)) {
+        reason = "invalid_rotation_scale";
       } else {
         usable = true;
       }
@@ -153,7 +157,8 @@ class SupervisorNode : public rclcpp::Node {
     target.state = state_name;
     target.engaged = engaged;
     if (engaged && latest_hand_) {
-      target.delta = to_transform_msg(delta_builder_->compute(latest_hand_->pose));
+      target.delta = to_transform_msg(
+          delta_builder_->compute(latest_hand_->pose, latest_hand_->rotation_scale));
     }
     target.sequence = ++sequence_;
 
