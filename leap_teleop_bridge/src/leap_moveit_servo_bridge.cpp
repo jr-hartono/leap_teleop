@@ -90,13 +90,16 @@ class MoveItServoBridge : public rclcpp::Node {
         });
     command_publisher_ =
         create_publisher<geometry_msgs::msg::TwistStamped>(topic, rclcpp::QoS(rclcpp::KeepLast(1)));
+    // Every computed command, also in dry run, for visualization.
+    computed_command_publisher_ = create_publisher<geometry_msgs::msg::TwistStamped>(
+        "command", rclcpp::QoS(rclcpp::KeepLast(1)));
 
     const auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::duration<double>(publish_period_));
     timer_ = create_wall_timer(period, [this]() { on_tick(); });
 
     if (dry_run_) {
-      RCLCPP_WARN(get_logger(), "dry_run is enabled; no commands will be published");
+      RCLCPP_WARN(get_logger(), "dry_run is enabled; commands will not be sent to Servo");
     }
   }
 
@@ -186,6 +189,10 @@ class MoveItServoBridge : public rclcpp::Node {
       }
     }
 
+    if (reason.empty()) {
+      computed_command_publisher_->publish(command);
+    }
+
     if (!dry_run_ && reason.empty() && command_publisher_->get_subscription_count() == 0) {
       reason = "no_servo_subscriber";
     }
@@ -227,6 +234,7 @@ class MoveItServoBridge : public rclcpp::Node {
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   rclcpp::Subscription<leap_teleop_msgs::msg::TeleopDelta>::SharedPtr target_subscription_;
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr command_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr computed_command_publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
 

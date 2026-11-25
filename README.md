@@ -25,6 +25,7 @@ Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo
 | `/leap_teleop/deadman` | `DeadmanState` | deadman | Whether the deadman key is held |
 | `/leap_teleop/pose_delta` | `TeleopDelta` | supervisor | Pose change since engagement; the bridge's input |
 | `/leap_teleop/state` | `TeleopState` | supervisor | `idle`, `engaged` or `hold`, with the reason |
+| `/leap_teleop/command` | `geometry_msgs/TwistStamped` | bridge | Twist the bridge computed, also in dry run |
 
 The bridge publishes `geometry_msgs/TwistStamped` on `cartesian_command_topic`
 (default `/servo_node/delta_twist_cmds`).
@@ -105,7 +106,7 @@ command.
      operator across the desk.
    - `mount_mode`: `desktop` with the cameras facing up and LED facing the operator, or `head_mounted`
      with cameras facing forward and the LED facing down.
-3. Launch. `dry_run` defaults to true, which logs commands instead of publishing them:
+3. Launch. `dry_run` defaults to true, which logs commands instead of sending them to Servo:
 
    ```bash
    ros2 launch leap_teleop_bringup teleop.launch.py params_file:=/path/to/my_arm.yaml
