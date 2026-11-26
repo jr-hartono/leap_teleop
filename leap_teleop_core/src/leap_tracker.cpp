@@ -375,6 +375,7 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
   array.is_tracking = true;
 
   std::optional<HandPoseInput> inputs[2];  // Indexed by HandSide.
+  float pinch_distances_mm[2] = {0.0F, 0.0F};
 
   if (frame->pHands != nullptr) {
     array.hands.reserve(frame->nHands);
@@ -392,6 +393,10 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
       reported.palm.orientation.z = hand.palm.orientation.z;
       reported.palm.orientation.w = hand.palm.orientation.w;
 
+      reported.pinch_strength = clamp_unit_strength(hand.pinch_strength);
+      reported.pinch_distance = non_negative_distance(hand.pinch_distance);
+      reported.grab_strength = clamp_unit_strength(hand.grab_strength);
+
       HandPoseInput input;
       input.position_m =
           Eigen::Vector3d(hand.palm.position.x, hand.palm.position.y, hand.palm.position.z) * 0.001;
@@ -400,6 +405,7 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
                                         hand.palm.orientation.y, hand.palm.orientation.z));
       input.time_sec = stamp.seconds();
       inputs[reported.side == Hand::LEFT ? 0 : 1] = input;
+      pinch_distances_mm[reported.side == Hand::LEFT ? 0 : 1] = reported.pinch_distance;
       array.hands.push_back(reported);
     }
   }
@@ -418,6 +424,7 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
     targets[side].header.stamp = stamp;
     targets[side].header.frame_id = kHandFrame;
     targets[side].pose = *poses[side];
+    targets[side].pinch_distance = pinch_distances_mm[side];
   }
 
   {

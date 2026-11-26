@@ -7,10 +7,12 @@
 #include "leap_teleop_core/hand_mapper.hpp"
 
 using leap_teleop::axis_angle;
+using leap_teleop::clamp_unit_strength;
 using leap_teleop::degrees_to_radians;
 using leap_teleop::HandMapper;
 using leap_teleop::HandMapperConfig;
 using leap_teleop::HandPoseInput;
+using leap_teleop::non_negative_distance;
 using leap_teleop::point_from_msg;
 using leap_teleop::rotation_angle;
 
@@ -145,4 +147,17 @@ TEST(PerSideMapper, ResetAllClearsBothSides) {
   input.time_sec = 0.01;
   EXPECT_NEAR(point_from_msg(mapper.update(HandSide::kLeft, input)->position).x(), 0.2, 1e-12);
   EXPECT_NEAR(point_from_msg(mapper.update(HandSide::kRight, input)->position).x(), 0.2, 1e-12);
+}
+
+TEST(PinchSignals, StrengthIsClampedToUnitRange) {
+  EXPECT_FLOAT_EQ(clamp_unit_strength(0.25F), 0.25F);
+  EXPECT_FLOAT_EQ(clamp_unit_strength(-0.1F), 0.0F);
+  EXPECT_FLOAT_EQ(clamp_unit_strength(1.5F), 1.0F);
+  EXPECT_FLOAT_EQ(clamp_unit_strength(std::nanf("")), 0.0F);
+}
+
+TEST(PinchSignals, DistanceIsNonNegative) {
+  EXPECT_FLOAT_EQ(non_negative_distance(42.0F), 42.0F);
+  EXPECT_FLOAT_EQ(non_negative_distance(-3.0F), 0.0F);
+  EXPECT_FLOAT_EQ(non_negative_distance(std::nanf("")), 0.0F);
 }

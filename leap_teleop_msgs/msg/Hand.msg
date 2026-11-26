@@ -5,4 +5,7 @@ string RIGHT="right"
 
 string side
 uint64 visible_time_us
-geometry_msgs/Pose palm
+geometry_msgs/Pose palm  # in leap_device_frame
+float32 pinch_strength  # 0 to 1, thumb against any finger
+float32 pinch_distance  # mm, index fingertip to thumb
+float32 grab_strength  # 0 to 1, four fingers curled

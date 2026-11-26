@@ -46,6 +46,11 @@ class HandMapper {
   RotationDeadband rotation_deadband_;
 };
 
+// Leap pinch and grab values for the messages. Strengths are limited to [0, 1], distance to >= 0;
+// NaN becomes 0.
+float clamp_unit_strength(float value);
+float non_negative_distance(float value);
+
 enum class HandSide { kLeft = 0, kRight = 1 };
 
 // One HandMapper per side, so a hand that disappears resets only its own filters and deadbands.

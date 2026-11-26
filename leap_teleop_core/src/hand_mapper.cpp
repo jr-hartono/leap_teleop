@@ -2,6 +2,15 @@
 
 namespace leap_teleop {
 
+float clamp_unit_strength(float value) {
+  if (!(value > 0.0F)) {
+    return 0.0F;
+  }
+  return value > 1.0F ? 1.0F : value;
+}
+
+float non_negative_distance(float value) { return value > 0.0F ? value : 0.0F; }
+
 HandMapper::HandMapper(const HandMapperConfig& config)
     : config_(config),
       filter_x_(config.filter_min_cutoff_hz, config.filter_beta),

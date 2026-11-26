@@ -21,8 +21,8 @@ Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo
 
 | Topic | Type | From | Content |
 |---|---|---|---|
-| `/leap_teleop/hands` | `HandArray` | tracker | All tracked hands in the device frame, for diagnostics |
-| `/leap_teleop/hand_pose/left`, `/leap_teleop/hand_pose/right` | `HandPose` | tracker | Filtered palm pose of that hand, in the operator frame |
+| `/leap_teleop/hands` | `HandArray` | tracker | All tracked hands in the device frame, with pinch and grab values, for diagnostics |
+| `/leap_teleop/hand_pose/left`, `/leap_teleop/hand_pose/right` | `HandPose` | tracker | Filtered palm pose of that hand, in the operator frame, and the raw pinch distance in mm |
 | `/leap_teleop/deadman` | `DeadmanState` | deadman | Whether the deadman key is held |
 | `/leap_teleop/pose_delta` | `TeleopDelta` | supervisor | Pose change since engagement; the bridge's input |
 | `/leap_teleop/state` | `TeleopState` | supervisor | `idle`, `engaged` or `hold`, with the reason |
