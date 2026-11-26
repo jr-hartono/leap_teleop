@@ -180,6 +180,12 @@ Eigen::Quaterniond quaternion_from_msg(const geometry_msgs::msg::Quaternion& msg
   return normalized(Eigen::Quaterniond(msg.w, msg.x, msg.y, msg.z));
 }
 
+geometry_msgs::msg::Transform operator_to_device_transform(MountMode mode) {
+  geometry_msgs::msg::Transform transform;
+  transform.rotation = quaternion_to_msg(Eigen::Quaterniond(device_to_operator_rotation(mode)));
+  return transform;
+}
+
 geometry_msgs::msg::Quaternion quaternion_to_msg(const Eigen::Quaterniond& value) {
   const Eigen::Quaterniond unit = normalized(value);
   geometry_msgs::msg::Quaternion msg;

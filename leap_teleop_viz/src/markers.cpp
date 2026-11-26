@@ -77,10 +77,4 @@ geometry_msgs::msg::Transform base_to_operator(double yaw_deg, const Eigen::Vect
   return transform;
 }
 
-geometry_msgs::msg::Transform operator_to_device(MountMode mode) {
-  geometry_msgs::msg::Transform transform;
-  transform.rotation = quaternion_to_msg(Eigen::Quaterniond(device_to_operator_rotation(mode)));
-  return transform;
-}
-
 }  // namespace leap_teleop::viz

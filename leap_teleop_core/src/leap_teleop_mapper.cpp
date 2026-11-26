@@ -11,6 +11,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <stdexcept>
 #include <string>
+#include <tf2_ros/static_transform_broadcaster.hpp>
 #include <utility>
 
 #include "leap_teleop_core/delta_builder.hpp"
@@ -32,6 +33,7 @@ namespace leap_teleop {
 namespace {
 
 constexpr char kOperatorFrame[] = "leap_operator_frame";
+constexpr char kDeviceFrame[] = "leap_device_frame";
 
 double stamp_seconds(const builtin_interfaces::msg::Time& stamp) {
   return static_cast<double>(stamp.sec) + static_cast<double>(stamp.nanosec) * 1e-9;
@@ -99,6 +101,15 @@ class MapperNode : public rclcpp::Node {
     hand_mapper_ = std::make_unique<HandMapper>(hand_config(params, mount_mode_));
     closure_filter_ = std::make_unique<ClosureFilter>(gripper_config(params));
     closure_gate_ = std::make_unique<ClosureGate>(gripper_config(params));
+
+    // The device's mounting, as TF, so the raw hands can be shown next to the processed one.
+    static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+    geometry_msgs::msg::TransformStamped operator_to_device;
+    operator_to_device.header.stamp = now();
+    operator_to_device.header.frame_id = kOperatorFrame;
+    operator_to_device.child_frame_id = kDeviceFrame;
+    operator_to_device.transform = operator_to_device_transform(mount_mode_);
+    static_broadcaster_->sendTransform(operator_to_device);
     param_listener_->setUserCallback(
         [this](const leap_teleop_mapper::Params& updated) { apply_tuning(updated); });
 
@@ -343,6 +354,7 @@ class MapperNode : public rclcpp::Node {
   rclcpp::Publisher<leap_teleop_msgs::msg::TeleopGripper>::SharedPtr gripper_publisher_;
   rclcpp::Publisher<leap_teleop_msgs::msg::TeleopState>::SharedPtr state_publisher_;
   rclcpp::TimerBase::SharedPtr heartbeat_;
+  std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_broadcaster_;
 };
 
 }  // namespace leap_teleop

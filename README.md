@@ -107,14 +107,16 @@ command.
    - `cartesian_command_topic`, matching Servo's `cartesian_command_in_topic`.
    - `yaw`: 0 when the robot and the operator face the same way, 180 when the arm faces the
      operator across the desk.
-   - `mount_mode`: `desktop` with the cameras facing up and LED facing the operator, or
-     `head_mounted` with cameras facing forward and the LED facing down. Set the same value for
-     the driver and the mapper.
 3. Launch. `dry_run` defaults to true, which logs commands instead of sending them to Servo:
 
    ```bash
    ros2 launch leap_teleop_bringup teleop.launch.py params_file:=/path/to/my_arm.yaml
    ```
+
+   Two launch arguments set values that several nodes must share:
+   - `side`: `right` (default) or `left`, the hand that teleoperates the arm.
+   - `mount_mode`: `desktop` (default) with the cameras facing up and LED facing the operator, or
+     `head_mounted` with cameras facing forward and the LED facing down.
 
 4. Select Servo's twist input. Servo ignores `command_in_type` in YAML, so do this after every
    Servo start. Also make sure the controller behind Servo's `command_out_topic` is active.
@@ -153,8 +155,9 @@ differs.
 - Solid axes: the target the bridge drives to.
 - Faded axes: the target without `translation_scale` and `rotation_scale`.
 - Yellow and magenta arrows at the tool: the linear and angular twist.
-- Hands, drawn at `leap_operator_frame_offset`: orange for left, cyan for right, faded raw from the
-  controller, solid after filtering.
+- Hands, drawn at `leap_operator_frame_offset`: faded axes raw from the controller, labelled L or
+  R, and solid axes after filtering, with a ball from white (open) to black (closed) showing the
+  gripper closure.
 
 ## Tuning
 

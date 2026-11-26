@@ -4,6 +4,7 @@
 #include <Eigen/Geometry>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
+#include <geometry_msgs/msg/transform.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 #include <string>
 
@@ -31,6 +32,8 @@ Eigen::Matrix3d device_to_operator_rotation(MountMode mode);
 Eigen::Vector3d device_position_to_operator(const Eigen::Vector3d& position, MountMode mode);
 Eigen::Quaterniond device_orientation_to_operator(const Eigen::Quaterniond& orientation,
                                                   MountMode mode);
+// Step 1 as the static transform leap_operator_frame -> leap_device_frame.
+geometry_msgs::msg::Transform operator_to_device_transform(MountMode mode);
 
 // Step 2: operator axes -> robot base axes, a rotation by `yaw_deg` about +z.
 Eigen::Matrix3d yaw_rotation(double yaw_deg);

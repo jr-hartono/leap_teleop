@@ -45,13 +45,6 @@ leap_teleop_viz:
     validation:
       gt<>: [0.0]
       lt_eq<>: [10.0]
-  driver_node:
-    type: string
-    default_value: leap_driver
-    description: "Driver node to read mount_mode from, relative to this node's namespace."
-    read_only: true
-    validation:
-      not_empty<>: []
   leap_operator_frame_offset:
     type: double_array
     default_value: [0.0, 0.0, 0.0]

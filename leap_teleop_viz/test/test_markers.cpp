@@ -138,7 +138,7 @@ TEST(HandFrames, DeviceToBaseMatchesTheTeleopMapping) {
     for (const double yaw : {0.0, 90.0, 180.0}) {
       const Eigen::Isometry3d base_from_device =
           isometry(leap_teleop::viz::base_to_operator(yaw, offset)) *
-          isometry(leap_teleop::viz::operator_to_device(mode));
+          isometry(leap_teleop::operator_to_device_transform(mode));
       const Eigen::Vector3d expected =
           leap_teleop::leap_position_to_base(point, yaw, mode) + offset;
       EXPECT_TRUE((base_from_device * point).isApprox(expected, 1e-12))
@@ -154,7 +154,7 @@ TEST(HandFrames, FilteredPalmAxesMatchTheRawPalmAxes) {
     const Eigen::Quaterniond filtered =
         leap_teleop::device_orientation_to_operator(device_orientation, mode);
     const Eigen::Quaterniond raw_in_operator =
-        quaternion_from_msg(leap_teleop::viz::operator_to_device(mode).rotation) *
+        quaternion_from_msg(leap_teleop::operator_to_device_transform(mode).rotation) *
         device_orientation;
     EXPECT_TRUE(same_rotation(filtered, raw_in_operator));
   }

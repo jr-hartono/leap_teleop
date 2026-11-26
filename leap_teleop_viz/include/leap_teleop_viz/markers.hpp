@@ -37,7 +37,4 @@ std::array<visualization_msgs::msg::Marker, 3> axes(const geometry_msgs::msg::Po
 // display offset.
 geometry_msgs::msg::Transform base_to_operator(double yaw_deg, const Eigen::Vector3d& offset);
 
-// Static transform leap_operator_frame -> leap_device_frame: the driver's device -> operator axes.
-geometry_msgs::msg::Transform operator_to_device(MountMode mode);
-
 }  // namespace leap_teleop::viz

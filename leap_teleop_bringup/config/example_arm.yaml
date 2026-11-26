@@ -94,8 +94,6 @@
     tool_frame: tool0
     # Mapper node to read the scales from, relative to this node's namespace.
     mapper_node: leap_teleop_mapper
-    # Driver node to read mount_mode from, relative to this node's namespace.
-    driver_node: leap_driver
 
     # Position of leap_operator_frame in base_frame, x y z in meters. Display only.
     leap_operator_frame_offset: [0.0, 0.0, 0.0]
