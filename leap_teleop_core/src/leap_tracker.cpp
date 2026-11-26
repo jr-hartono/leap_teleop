@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstring>
 #include <leap_teleop_core/leap_tracker_parameters.hpp>
 #include <leap_teleop_msgs/msg/hand.hpp>
 #include <leap_teleop_msgs/msg/hand_array.hpp>
@@ -16,10 +17,10 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <unordered_map>
 
 #include "leap_teleop_core/frames.hpp"
 #include "leap_teleop_core/hand_mapper.hpp"
-#include "leap_teleop_core/tracking_mode_guard.hpp"
 
 namespace leap_teleop {
 
@@ -62,11 +63,27 @@ constexpr std::uint32_t kPollTimeoutMs = 10;
 constexpr auto kIdlePeriod = std::chrono::milliseconds(100);
 constexpr auto kFrameTimeout = std::chrono::milliseconds(250);
 constexpr auto kDeviceWarnDelay = std::chrono::seconds(2);
-constexpr auto kDeviceErrorDelay = std::chrono::seconds(10);
 constexpr char kDeviceFrame[] = "leap_device_frame";
 constexpr char kHandFrame[] = "leap_operator_frame";
 
 // Names the service's tracking mode after the matching mount_mode value.
+// Product names for the devices whose LeapC names are codenames, such as "Peripheral" for the
+// first Leap Motion Controller.
+const char* device_type_name(eLeapDevicePID pid) {
+  switch (pid) {
+    case eLeapDevicePID_Peripheral:
+      return "Leap Motion Controller";
+    case eLeapDevicePID_LMC2:
+      return "Leap Motion Controller 2";
+    case eLeapDevicePID_SIR170:
+      return "Stereo IR 170";
+    case eLeapDevicePID_3Di:
+      return "3Di";
+    default:
+      return LeapDevicePIDToString(pid);
+  }
+}
+
 const char* tracking_mode_name(eLeapTrackingMode mode) {
   switch (mode) {
     case eLeapTrackingMode_Desktop:
@@ -90,13 +107,15 @@ class LeapTrackerNode : public rclcpp::Node {
 
  private:
   void apply_tuning(const leap_tracker::Params& params);
+  void mark_device_lost();
   void reset_mappers();
   void poll_loop();
   void handle_event(const LEAP_CONNECTION_MESSAGE& message);
   void publish_tracking(const LEAP_TRACKING_EVENT* frame);
   void publish_idle();
-  void apply_mode_action(TrackingModeGuard::Action action);
-  double steady_seconds() const;
+  void on_device_attached(const LEAP_DEVICE_REF& device);
+  void on_tracking_mode(eLeapTrackingMode current);
+  std::string describe_device(const LEAP_DEVICE_REF& device) const;
 
   rclcpp::Publisher<HandArray>::SharedPtr hands_pub_;
   rclcpp::Publisher<HandPose>::SharedPtr left_pub_;
@@ -112,13 +131,16 @@ class LeapTrackerNode : public rclcpp::Node {
   std::atomic<bool> running_{false};
   std::atomic<bool> device_available_{false};
   eLeapTrackingMode tracking_mode_ = eLeapTrackingMode_Desktop;
-  TrackingModeGuard mode_guard_;  // Used only on the poll thread.
+  // Used only on the poll thread.
+  bool mode_requested_ = false;
+  std::unordered_map<uint32_t, std::string> device_names_;
 
   std::mutex state_mutex_;
   const std::chrono::steady_clock::time_point start_time_ = std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point last_frame_time_{};
+  // When the device was last lost; node start until a device first shows up.
+  std::chrono::steady_clock::time_point device_lost_time_ = start_time_;
   bool missing_device_warned_ = false;
-  bool missing_device_reported_ = false;
 };
 
 LeapTrackerNode::LeapTrackerNode(const rclcpp::NodeOptions& options)
@@ -179,6 +201,16 @@ void LeapTrackerNode::apply_tuning(const leap_tracker::Params& params) {
   mapper_->set_tuning(config);
 }
 
+void LeapTrackerNode::mark_device_lost() {
+  device_available_.store(false);
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    device_lost_time_ = std::chrono::steady_clock::now();
+    missing_device_warned_ = false;
+  }
+  reset_mappers();
+}
+
 void LeapTrackerNode::reset_mappers() {
   std::lock_guard<std::mutex> lock(mapper_mutex_);
   mapper_->reset_all();
@@ -201,27 +233,66 @@ void LeapTrackerNode::stop() {
   }
 }
 
-double LeapTrackerNode::steady_seconds() const {
-  return std::chrono::duration<double>(std::chrono::steady_clock::now() - start_time_).count();
+std::string LeapTrackerNode::describe_device(const LEAP_DEVICE_REF& device) const {
+  LEAP_DEVICE handle = nullptr;
+  if (LEAP_FAILED(LeapOpenDevice(device, &handle))) {
+    return "unknown device";
+  }
+  LEAP_DEVICE_INFO info{};
+  info.size = sizeof(info);
+  info.serial = nullptr;
+  // The first call reports the serial length, the second fills in the serial.
+  eLeapRS result = LeapGetDeviceInfo(handle, &info);
+  std::string serial;
+  if (result == eLeapRS_InsufficientBuffer ||
+      (result == eLeapRS_Success && info.serial_length > 0)) {
+    serial.resize(info.serial_length);
+    info.serial = serial.data();
+    result = LeapGetDeviceInfo(handle, &info);
+    serial.resize(std::strlen(serial.c_str()));
+  }
+  LeapCloseDevice(handle);
+  if (LEAP_FAILED(result)) {
+    return "unknown device";
+  }
+  return std::string(device_type_name(info.pid)) + ", serial " + serial;
 }
 
-// The service keeps one tracking mode for all applications and keeps it after they exit, so the
-// tracker always requests its own. The result arrives asynchronously as a TrackingMode event.
-void LeapTrackerNode::apply_mode_action(TrackingModeGuard::Action action) {
-  if (action == TrackingModeGuard::Action::kRequest) {
+// The service keeps one tracking mode for all applications and keeps it after they exit. On each
+// attach the tracker asks for the current mode and requests its own once if it differs; it does
+// not fight an application that changes the mode afterwards, it only warns.
+void LeapTrackerNode::on_device_attached(const LEAP_DEVICE_REF& device) {
+  const std::string name = describe_device(device);
+  device_names_[device.id] = name;
+  RCLCPP_INFO(this->get_logger(), "device attached: %s", name.c_str());
+  device_available_.store(true);
+  mode_requested_ = false;
+  const eLeapRS result = LeapGetTrackingMode(connection_->handle());
+  if (LEAP_FAILED(result)) {
+    RCLCPP_WARN(this->get_logger(), "LeapGetTrackingMode failed with code %d",
+                static_cast<int>(result));
+  }
+}
+
+void LeapTrackerNode::on_tracking_mode(eLeapTrackingMode current) {
+  if (current == tracking_mode_) {
+    RCLCPP_INFO(this->get_logger(), "tracking service is in mount_mode %s",
+                tracking_mode_name(current));
+    return;
+  }
+  if (!mode_requested_) {
+    mode_requested_ = true;
     const eLeapRS result = LeapSetTrackingMode(connection_->handle(), tracking_mode_);
     if (LEAP_FAILED(result)) {
       RCLCPP_WARN(this->get_logger(), "LeapSetTrackingMode(%s) failed with code %d",
                   tracking_mode_name(tracking_mode_), static_cast<int>(result));
     }
-  } else if (action == TrackingModeGuard::Action::kGiveUp) {
-    RCLCPP_ERROR(
-        this->get_logger(),
-        "the tracking service did not stay in mount_mode %s; another application, such as a "
-        "second leap_tracker, may be changing it. Tracking continues with lower quality; "
-        "stop the other application and restart leap_tracker",
-        tracking_mode_name(tracking_mode_));
+    return;
   }
+  RCLCPP_WARN(this->get_logger(),
+              "tracking service is in mount_mode %s, expected %s; another application may have "
+              "changed it",
+              tracking_mode_name(current), tracking_mode_name(tracking_mode_));
 }
 
 void LeapTrackerNode::poll_loop() {
@@ -230,7 +301,6 @@ void LeapTrackerNode::poll_loop() {
   while (running_.load(std::memory_order_relaxed)) {
     message.size = sizeof(message);
     const eLeapRS result = LeapPollConnection(connection_->handle(), kPollTimeoutMs, &message);
-    apply_mode_action(mode_guard_.on_tick(steady_seconds()));
     if (LEAP_FAILED(result)) {
       if (result != eLeapRS_Timeout) {
         RCLCPP_WARN_THROTTLE(this->get_logger(), *get_clock(), 5000,
@@ -248,48 +318,37 @@ void LeapTrackerNode::poll_loop() {
 void LeapTrackerNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
   switch (message.type) {
     case eLeapEventType_Connection:
+      // The service sends a Device event for each attached device after connecting.
       RCLCPP_INFO(this->get_logger(), "tracking service connected");
-      apply_mode_action(mode_guard_.restart(steady_seconds()));
       break;
 
     case eLeapEventType_ConnectionLost:
       RCLCPP_WARN(this->get_logger(), "tracking service connection lost");
-      device_available_.store(false);
-      reset_mappers();
+      mark_device_lost();
       break;
 
     case eLeapEventType_Device:
-      RCLCPP_INFO(this->get_logger(), "device %u attached",
-                  static_cast<unsigned int>(message.device_event->device.id));
-      device_available_.store(true);
-      apply_mode_action(mode_guard_.restart(steady_seconds()));
+      on_device_attached(message.device_event->device);
       break;
 
-    case eLeapEventType_DeviceLost:
-      RCLCPP_WARN(this->get_logger(), "device %u detached",
-                  static_cast<unsigned int>(message.device_event->device.id));
-      device_available_.store(false);
-      reset_mappers();
-      break;
+    case eLeapEventType_DeviceLost: {
+      const auto it = device_names_.find(message.device_event->device.id);
+      RCLCPP_WARN(this->get_logger(), "device detached: %s",
+                  it != device_names_.end() ? it->second.c_str() : "unknown device");
+      if (it != device_names_.end()) {
+        device_names_.erase(it);
+      }
+      mark_device_lost();
+    } break;
 
     case eLeapEventType_DeviceFailure:
       RCLCPP_WARN(this->get_logger(), "device failure reported");
-      device_available_.store(false);
-      reset_mappers();
+      mark_device_lost();
       break;
 
-    case eLeapEventType_TrackingMode: {
-      const eLeapTrackingMode current = message.tracking_mode_event->current_tracking_mode;
-      if (current == tracking_mode_) {
-        RCLCPP_INFO(this->get_logger(), "tracking service set to mount_mode %s",
-                    tracking_mode_name(current));
-      } else {
-        RCLCPP_WARN(this->get_logger(), "tracking service is in mount_mode %s, expected %s",
-                    tracking_mode_name(current), tracking_mode_name(tracking_mode_));
-      }
-      apply_mode_action(mode_guard_.on_mode(current == tracking_mode_, steady_seconds()));
+    case eLeapEventType_TrackingMode:
+      on_tracking_mode(message.tracking_mode_event->current_tracking_mode);
       break;
-    }
 
     case eLeapEventType_Tracking:
       publish_tracking(message.tracking_event);
@@ -372,25 +431,16 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
     }
     last_frame_time_ = std::chrono::steady_clock::now();
     missing_device_warned_ = false;
-    missing_device_reported_ = false;
   }
 }
 
 void LeapTrackerNode::publish_idle() {
   std::lock_guard<std::mutex> lock(state_mutex_);
   const auto now_steady = std::chrono::steady_clock::now();
-  const auto without_device = now_steady - start_time_;
+  const auto without_device = now_steady - device_lost_time_;
   if (!device_available_.load() && without_device >= kDeviceWarnDelay && !missing_device_warned_) {
-    RCLCPP_WARN(get_logger(),
-                "no Leap device detected for %.1f s; check the USB connection and leapd service",
-                std::chrono::duration<double>(without_device).count());
+    RCLCPP_WARN(get_logger(), "no Leap device detected; check the USB connection");
     missing_device_warned_ = true;
-  }
-  if (!device_available_.load() && without_device >= kDeviceErrorDelay &&
-      !missing_device_reported_) {
-    RCLCPP_ERROR(get_logger(), "no Leap device detected for %.1f s; tracking stays unavailable",
-                 std::chrono::duration<double>(without_device).count());
-    missing_device_reported_ = true;
   }
   if (device_available_.load() && now_steady - last_frame_time_ < kFrameTimeout) {
     return;
