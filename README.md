@@ -114,7 +114,8 @@ command.
    ```
 
    Two launch arguments set values for the nodes:
-   - `side`: `right` (default) or `left`, the hand that teleoperates the arm.
+   - `side`: `right` (default) or `left`, the hand the bridge and the viz's arm markers follow.
+     The mapper processes both hands.
    - `tracking_mode`: the mode the driver requests from `ultraleap-hand-tracking-service`,
      `desktop` (default) with the cameras facing up and LED facing the operator, or
      `head_mounted` with cameras facing forward and the LED facing down. Only the driver reads
@@ -127,7 +128,7 @@ command.
    ros2 service call /servo_node/switch_command_type moveit_msgs/srv/ServoCommandType "{command_type: 1}"
    ```
 
-5. Check the states with `ros2 topic echo /leap_teleop/state/right`:
+5. Check the states with `ros2 topic echo /leap_teleop/state/right` (`left` for the other hand):
 
    | Do | Expect |
    |---|---|
@@ -186,7 +187,8 @@ palm is edge-on to the camera.
 
 The driver only relays what `ultraleap-hand-tracking-service` reports, in the device frame,
 together with the tracking mode the service reports; its `tracking_mode` only selects the mode it
-requests. The mapper takes the hand of its `side`, maps the palm into an operator frame following
+requests. The mapper processes both hands, each with its own filters and state; one deadman key
+engages both. For each hand it maps the palm into an operator frame following
 [REP 103](https://www.ros.org/reps/rep-0103.html) (x forward, y left, z up), which depends on the
 reported tracking mode, and filters the pose and the pinch closure. It publishes the result as
 `teleop_hand/<side>`, rotates the pose into the robot's base axes by `yaw`, and gates the gripper
@@ -195,7 +197,7 @@ and publishes the change since then, with the translation multiplied by `transla
 the rotation angle multiplied by `rotation_scale`. The bridge latches the tool pose from TF on the
 same press, adds the translation, applies the rotation about the tool origin, and drives Servo
 with a P controller clamped to the speed caps. If the tracking mode changes while running, for
-example because another application sets it, the mapper drops the hand and goes to hold; press
+example because another application sets it, the mapper drops both hands and goes to hold; press
 the key again to resume.
 
 | State | When | Motion |

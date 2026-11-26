@@ -27,8 +27,6 @@
     # Time in hold before idle, in seconds. 0 stays in hold.
     hold_timeout: 2.0
 
-    # Hand used for teleoperation: right | left.
-    side: right
     # Yaw from the operator's forward axis to the robot's +x, in degrees.
     yaw: 0.0
 

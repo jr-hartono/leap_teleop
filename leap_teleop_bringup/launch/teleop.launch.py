@@ -125,7 +125,7 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "side",
                 default_value="right",
-                description="Hand that teleoperates the arm: right | left.",
+                description="Hand the bridge and the viz arm markers follow: right | left.",
             ),
             DeclareLaunchArgument(
                 "tracking_mode",

@@ -4,7 +4,7 @@ leap_teleop_viz:
   side:
     type: string
     default_value: right
-    description: "Hand whose pose_delta/<side> and command/<side> are shown. Must match the mapper's side: right | left."
+    description: "Hand whose pose_delta/<side> and command/<side> are shown. Should match the bridge's side: right | left."
     read_only: true
     validation:
       one_of<>: [["right", "left"]]
