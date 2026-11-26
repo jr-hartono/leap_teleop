@@ -92,6 +92,9 @@ def robot(context):
     controllers = os.path.join(
         get_package_share_directory("ur_robot_driver"), "config", "ur_controllers.yaml"
     )
+    # Edited as text, not with yaml: UR's launch file fills in placeholders such as
+    # tf_prefix: "$(var tf_prefix)" in the text. yaml would drop the quotes, and an empty
+    # tf_prefix would then leave "tf_prefix:" without a value, which ROS cannot parse.
     with open(controllers) as file:
         text = file.read()
     section = f"{CONTROLLER}:\n  ros__parameters:\n"
@@ -172,7 +175,7 @@ def generate_launch_description():
                 {
                     "ur_type": UR_TYPE,
                     "launch_servo": "false",
-                    "launch_rviz": "true",
+                    "launch_rviz": "false",
                 },
             ),
             OpaqueFunction(function=servo_node),
