@@ -44,13 +44,6 @@ leap_teleop_mapper:
     read_only: true
     validation:
       bounds<>: [-180.0, 180.0]
-  mount_mode:
-    type: string
-    default_value: desktop
-    description: "Device mounting: desktop | head_mounted."
-    read_only: true
-    validation:
-      one_of<>: [["desktop", "head_mounted"]]
   translation_scale:
     type: double
     default_value: 1.0

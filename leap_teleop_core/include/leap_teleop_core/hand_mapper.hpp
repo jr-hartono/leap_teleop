@@ -9,7 +9,7 @@
 namespace leap_teleop {
 
 struct HandMapperConfig {
-  MountMode mount_mode = MountMode::kDesktop;
+  TrackingMode tracking_mode = TrackingMode::kDesktop;
   double deadband_translation_m = 0.002;
   double deadband_rotation_rad = 0.5 * kPi / 180.0;
   double deadband_hysteresis = 1.5;
@@ -31,6 +31,8 @@ class HandMapper {
   geometry_msgs::msg::Pose update(const HandPoseInput& input);
   // Updates tuning fields only; filter, deadband and frame state is preserved.
   void set_tuning(const HandMapperConfig& config);
+  // Changes the device mounting and restarts filters, as the old and new poses do not connect.
+  void set_tracking_mode(TrackingMode mode);
   void reset();
 
  private:

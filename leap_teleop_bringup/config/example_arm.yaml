@@ -3,8 +3,8 @@
 
 /**/leap_driver:
   ros__parameters:
-    # Device mounting: desktop | head_mounted. Must match leap_teleop_mapper's.
-    mount_mode: desktop
+    # Tracking mode requested from the service: desktop | head_mounted.
+    tracking_mode: desktop
 
 /**/leap_teleop_deadman:
   ros__parameters:
@@ -17,8 +17,6 @@
 
 /**/leap_teleop_mapper:
   ros__parameters:
-    # Device mounting: desktop | head_mounted. Must match leap_driver's.
-    mount_mode: desktop
     # TF frame of the deltas. yaw is relative to it.
     base_frame: base_link
 

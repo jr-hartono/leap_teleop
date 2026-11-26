@@ -1,10 +1,10 @@
 # Parameters of leap_driver, enforced by the generated ParamListener.
 
 leap_driver:
-  mount_mode:
+  tracking_mode:
     type: string
     default_value: desktop
-    description: "Device mounting: desktop | head_mounted."
+    description: "Tracking mode requested from the service: desktop | head_mounted."
     read_only: true
     validation:
       one_of<>: [["desktop", "head_mounted"]]

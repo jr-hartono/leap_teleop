@@ -22,21 +22,25 @@ Eigen::Quaterniond rotate_orientation(const Eigen::Matrix3d& rotation,
 
 }  // namespace
 
-MountMode mount_mode_from_string(const std::string& name) {
+TrackingMode tracking_mode_from_string(const std::string& name) {
   if (name == "desktop") {
-    return MountMode::kDesktop;
+    return TrackingMode::kDesktop;
   }
   if (name == "head_mounted") {
-    return MountMode::kHeadMounted;
+    return TrackingMode::kHeadMounted;
   }
-  throw std::invalid_argument("unknown mount_mode '" + name + "'");
+  throw std::invalid_argument("unknown tracking_mode '" + name + "'");
 }
 
-Eigen::Matrix3d device_to_operator_rotation(MountMode mode) {
+const char* tracking_mode_to_string(TrackingMode mode) {
+  return mode == TrackingMode::kHeadMounted ? "head_mounted" : "desktop";
+}
+
+Eigen::Matrix3d device_to_operator_rotation(TrackingMode mode) {
   // Leap device axes: +x along the camera baseline, +y out of the cameras, +z towards the operator
   // when on a desk. LeapC reports hands in these device axes in every tracking mode.
   Eigen::Matrix3d rotation;
-  if (mode == MountMode::kHeadMounted) {
+  if (mode == TrackingMode::kHeadMounted) {
     // Cameras forward: forward = +y, left = +x, up = -z. Ultraleap's XR convention, the
     // Euler(-90, 180, 0) device rotation in its Unity plugin's LeapXRServiceProvider.
     rotation << 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, -1.0;
@@ -47,12 +51,12 @@ Eigen::Matrix3d device_to_operator_rotation(MountMode mode) {
   return rotation;
 }
 
-Eigen::Vector3d device_position_to_operator(const Eigen::Vector3d& position, MountMode mode) {
+Eigen::Vector3d device_position_to_operator(const Eigen::Vector3d& position, TrackingMode mode) {
   return device_to_operator_rotation(mode) * position;
 }
 
 Eigen::Quaterniond device_orientation_to_operator(const Eigen::Quaterniond& orientation,
-                                                  MountMode mode) {
+                                                  TrackingMode mode) {
   return rotate_orientation(device_to_operator_rotation(mode), orientation);
 }
 
@@ -70,17 +74,17 @@ Eigen::Quaterniond operator_orientation_to_base(const Eigen::Quaterniond& orient
   return rotate_orientation(yaw_rotation(yaw_deg), orientation);
 }
 
-Eigen::Matrix3d device_to_base_rotation(double yaw_deg, MountMode mode) {
+Eigen::Matrix3d device_to_base_rotation(double yaw_deg, TrackingMode mode) {
   return yaw_rotation(yaw_deg) * device_to_operator_rotation(mode);
 }
 
 Eigen::Vector3d leap_position_to_base(const Eigen::Vector3d& position_m, double yaw_deg,
-                                      MountMode mode) {
+                                      TrackingMode mode) {
   return operator_position_to_base(device_position_to_operator(position_m, mode), yaw_deg);
 }
 
 Eigen::Quaterniond leap_orientation_to_base(const Eigen::Quaterniond& orientation, double yaw_deg,
-                                            MountMode mode) {
+                                            TrackingMode mode) {
   return operator_orientation_to_base(device_orientation_to_operator(orientation, mode), yaw_deg);
 }
 
@@ -180,7 +184,7 @@ Eigen::Quaterniond quaternion_from_msg(const geometry_msgs::msg::Quaternion& msg
   return normalized(Eigen::Quaterniond(msg.w, msg.x, msg.y, msg.z));
 }
 
-geometry_msgs::msg::Transform operator_to_device_transform(MountMode mode) {
+geometry_msgs::msg::Transform operator_to_device_transform(TrackingMode mode) {
   geometry_msgs::msg::Transform transform;
   transform.rotation = quaternion_to_msg(Eigen::Quaterniond(device_to_operator_rotation(mode)));
   return transform;

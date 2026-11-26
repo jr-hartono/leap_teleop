@@ -68,9 +68,9 @@ GripperMapperConfig gripper_config(const leap_teleop_mapper::Params& params) {
   return config;
 }
 
-HandMapperConfig hand_config(const leap_teleop_mapper::Params& params, MountMode mount_mode) {
+// The tracking mode is not a parameter; the hand mapper gets it from set_tracking_mode.
+HandMapperConfig hand_config(const leap_teleop_mapper::Params& params) {
   HandMapperConfig config;
-  config.mount_mode = mount_mode;
   config.deadband_translation_m = params.deadband_translation;
   config.deadband_rotation_rad = degrees_to_radians(params.deadband_rotation);
   config.deadband_hysteresis = params.deadband_hysteresis;
@@ -97,19 +97,12 @@ class MapperNode : public rclcpp::Node {
     if (!valid_pinch_range(params.pinch_closed_mm, params.pinch_open_mm)) {
       throw std::runtime_error("pinch_closed_mm must be below pinch_open_mm");
     }
-    mount_mode_ = mount_mode_from_string(params.mount_mode);
-    hand_mapper_ = std::make_unique<HandMapper>(hand_config(params, mount_mode_));
+    hand_mapper_ = std::make_unique<HandMapper>(hand_config(params));
     closure_filter_ = std::make_unique<ClosureFilter>(gripper_config(params));
     closure_gate_ = std::make_unique<ClosureGate>(gripper_config(params));
 
-    // The device's mounting, as TF, so the raw hands can be shown next to the processed one.
+    // Broadcasts the device's mounting once the first hand array names the tracking mode.
     static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
-    geometry_msgs::msg::TransformStamped operator_to_device;
-    operator_to_device.header.stamp = now();
-    operator_to_device.header.frame_id = kOperatorFrame;
-    operator_to_device.child_frame_id = kDeviceFrame;
-    operator_to_device.transform = operator_to_device_transform(mount_mode_);
-    static_broadcaster_->sendTransform(operator_to_device);
     param_listener_->setUserCallback(
         [this](const leap_teleop_mapper::Params& updated) { apply_tuning(updated); });
 
@@ -158,7 +151,7 @@ class MapperNode : public rclcpp::Node {
     log_change("filter_beta", current_params_.filter_beta, params.filter_beta);
     {
       const std::lock_guard<std::mutex> lock(processing_mutex_);
-      hand_mapper_->set_tuning(hand_config(params, mount_mode_));
+      hand_mapper_->set_tuning(hand_config(params));
     }
     if (valid_pinch_range(params.pinch_closed_mm, params.pinch_open_mm)) {
       const std::lock_guard<std::mutex> lock(processing_mutex_);
@@ -174,9 +167,69 @@ class MapperNode : public rclcpp::Node {
     rotation_scale_ = params.rotation_scale;
   }
 
+  // Takes the tracking mode from the hand array. Returns false when the hand must be dropped: the
+  // mode is unknown or has just changed, so poses from before and after do not connect. The drop
+  // goes through the same path as a lost hand, so the FSM holds and needs a new key press.
+  bool update_tracking_mode(const std::string& name) {
+    std::optional<TrackingMode> mode;
+    if (name != leap_teleop_msgs::msg::HandArray::UNKNOWN) {
+      try {
+        mode = tracking_mode_from_string(name);
+      } catch (const std::invalid_argument&) {
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "unknown tracking_mode '%s'",
+                             name.c_str());
+      }
+    }
+    if (!mode) {
+      drop_hand();
+      return false;
+    }
+    if (tracking_mode_ == mode) {
+      return true;
+    }
+    const bool changed = tracking_mode_.has_value();
+    if (changed) {
+      RCLCPP_INFO(get_logger(), "tracking_mode changed: %s -> %s",
+                  tracking_mode_to_string(*tracking_mode_), tracking_mode_to_string(*mode));
+    } else {
+      RCLCPP_INFO(get_logger(), "tracking_mode is %s", tracking_mode_to_string(*mode));
+    }
+    tracking_mode_ = mode;
+    {
+      const std::lock_guard<std::mutex> lock(processing_mutex_);
+      hand_mapper_->set_tracking_mode(*mode);
+      closure_filter_->reset();
+    }
+    geometry_msgs::msg::TransformStamped operator_to_device;
+    operator_to_device.header.stamp = now();
+    operator_to_device.header.frame_id = kOperatorFrame;
+    operator_to_device.child_frame_id = kDeviceFrame;
+    operator_to_device.transform = operator_to_device_transform(*mode);
+    static_broadcaster_->sendTransform(operator_to_device);
+    if (changed) {
+      drop_hand();
+      return false;
+    }
+    return true;
+  }
+
+  // Forgets the hand now rather than after tracking_timeout, so the FSM sees no hand.
+  void drop_hand() {
+    {
+      const std::lock_guard<std::mutex> lock(processing_mutex_);
+      hand_mapper_->reset();
+      closure_filter_->reset();
+    }
+    have_hand_ = false;
+    latest_hand_.reset();
+  }
+
   // Maps the configured side's hand to the operator frame, filters it and publishes it. A hand
   // that is absent or not tracked is lost: its filters restart with the next sighting.
   void on_hands(const leap_teleop_msgs::msg::HandArray& array) {
+    if (!update_tracking_mode(array.tracking_mode)) {
+      return;
+    }
     const leap_teleop_msgs::msg::Hand* hand = nullptr;
     if (array.is_tracking) {
       for (const auto& candidate : array.hands) {
@@ -339,7 +392,8 @@ class MapperNode : public rclcpp::Node {
   std::optional<leap_teleop_msgs::msg::DeadmanState> latest_deadman_;
   std::unique_ptr<DeltaBuilder> delta_builder_;
   std::unique_ptr<MapperFsm> fsm_;
-  MountMode mount_mode_ = MountMode::kDesktop;
+  // The mode the last hand array reported; unset until one does.
+  std::optional<TrackingMode> tracking_mode_;
   std::mutex processing_mutex_;
   std::unique_ptr<HandMapper> hand_mapper_;
   std::unique_ptr<ClosureFilter> closure_filter_;

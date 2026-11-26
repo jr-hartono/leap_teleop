@@ -22,7 +22,7 @@ HandMapper::HandMapper(const HandMapperConfig& config)
 
 geometry_msgs::msg::Pose HandMapper::update(const HandPoseInput& input) {
   const Eigen::Vector3d in_operator =
-      device_position_to_operator(input.position_m, config_.mount_mode);
+      device_position_to_operator(input.position_m, config_.tracking_mode);
   Eigen::Vector3d filtered;
   filtered.x() = filter_x_.filter(in_operator.x(), input.time_sec);
   filtered.y() = filter_y_.filter(in_operator.y(), input.time_sec);
@@ -32,7 +32,7 @@ geometry_msgs::msg::Pose HandMapper::update(const HandPoseInput& input) {
 
   // No scaling here: the mapper scales the change since engagement (DeltaBuilder::compute).
   const Eigen::Quaterniond operator_orientation =
-      device_orientation_to_operator(input.orientation, config_.mount_mode);
+      device_orientation_to_operator(input.orientation, config_.tracking_mode);
   const Eigen::Quaterniond filtered_orientation =
       orientation_filter_.filter(operator_orientation, input.time_sec);
   const Eigen::Quaterniond output_orientation =
@@ -57,6 +57,11 @@ void HandMapper::set_tuning(const HandMapperConfig& config) {
   orientation_filter_.set_min_cutoff(config_.filter_min_cutoff_hz);
   translation_deadband_.set_parameters(config_.deadband_translation_m, config_.deadband_hysteresis);
   rotation_deadband_.set_parameters(config_.deadband_rotation_rad, config_.deadband_hysteresis);
+}
+
+void HandMapper::set_tracking_mode(TrackingMode mode) {
+  config_.tracking_mode = mode;
+  reset();
 }
 
 void HandMapper::reset() {

@@ -60,7 +60,6 @@ constexpr auto kFrameTimeout = std::chrono::milliseconds(250);
 constexpr auto kDeviceWarnDelay = std::chrono::seconds(2);
 constexpr char kDeviceFrame[] = "leap_device_frame";
 
-// Names the service's tracking mode after the matching mount_mode value.
 // Product names for the devices whose LeapC names are codenames, such as "Peripheral" for the
 // first Leap Motion Controller.
 const char* device_type_name(eLeapDevicePID pid) {
@@ -91,6 +90,18 @@ const char* tracking_mode_name(eLeapTrackingMode mode) {
   }
 }
 
+// The mode value for HandArray, unknown for a mode other than desktop or head-mounted.
+std::string reported_mode_name(eLeapTrackingMode mode) {
+  switch (mode) {
+    case eLeapTrackingMode_Desktop:
+      return HandArray::DESKTOP;
+    case eLeapTrackingMode_HMD:
+      return HandArray::HEAD_MOUNTED;
+    default:
+      return HandArray::UNKNOWN;
+  }
+}
+
 class LeapDriverNode : public rclcpp::Node {
  public:
   explicit LeapDriverNode(const rclcpp::NodeOptions& options);
@@ -107,6 +118,7 @@ class LeapDriverNode : public rclcpp::Node {
   void publish_idle();
   void on_device_attached(const LEAP_DEVICE_REF& device);
   void on_tracking_mode(eLeapTrackingMode current);
+  std::string reported_mode_name_now() const;
   std::string describe_device(const LEAP_DEVICE_REF& device) const;
 
   rclcpp::Publisher<HandArray>::SharedPtr hands_pub_;
@@ -117,7 +129,13 @@ class LeapDriverNode : public rclcpp::Node {
 
   std::atomic<bool> running_{false};
   std::atomic<bool> device_available_{false};
-  eLeapTrackingMode tracking_mode_ = eLeapTrackingMode_Desktop;
+  // The mode requested from the service.
+  eLeapTrackingMode requested_mode_ = eLeapTrackingMode_Desktop;
+  // The mode the service reports, as an eLeapTrackingMode, or -1 while unknown. Written on the
+  // poll thread, read by the idle timer.
+  std::atomic<int> reported_mode_{-1};
+  // Used only on the poll thread.
+  bool unsupported_mode_warned_ = false;
   // Used only on the poll thread.
   bool mode_requested_ = false;
   std::unordered_map<uint32_t, std::string> device_names_;
@@ -134,9 +152,9 @@ LeapDriverNode::LeapDriverNode(const rclcpp::NodeOptions& options)
     : rclcpp::Node("leap_driver", options) {
   param_listener_ = std::make_shared<leap_driver::ParamListener>(this);
   const auto params = param_listener_->get_params();
-  const MountMode mount_mode = mount_mode_from_string(params.mount_mode);
-  tracking_mode_ =
-      (mount_mode == MountMode::kHeadMounted) ? eLeapTrackingMode_HMD : eLeapTrackingMode_Desktop;
+  const TrackingMode tracking_mode = tracking_mode_from_string(params.tracking_mode);
+  requested_mode_ = (tracking_mode == TrackingMode::kHeadMounted) ? eLeapTrackingMode_HMD
+                                                                  : eLeapTrackingMode_Desktop;
 
   hands_pub_ = create_publisher<HandArray>(
       "hands", rclcpp::QoS(rclcpp::KeepLast(5)).best_effort().durability_volatile());
@@ -147,6 +165,7 @@ LeapDriverNode::LeapDriverNode(const rclcpp::NodeOptions& options)
 
 void LeapDriverNode::mark_device_lost() {
   device_available_.store(false);
+  reported_mode_.store(-1);
   {
     std::lock_guard<std::mutex> lock(state_mutex_);
     device_lost_time_ = std::chrono::steady_clock::now();
@@ -213,24 +232,45 @@ void LeapDriverNode::on_device_attached(const LEAP_DEVICE_REF& device) {
 }
 
 void LeapDriverNode::on_tracking_mode(eLeapTrackingMode current) {
-  if (current == tracking_mode_) {
-    RCLCPP_INFO(this->get_logger(), "tracking service is in mount_mode %s",
+  if (reported_mode_name(current) == HandArray::UNKNOWN) {
+    reported_mode_.store(-1);
+    if (!unsupported_mode_warned_) {
+      unsupported_mode_warned_ = true;
+      RCLCPP_WARN(this->get_logger(),
+                  "tracking service is in tracking_mode %s, which is neither desktop nor "
+                  "head_mounted; hand arrays carry tracking_mode unknown",
+                  tracking_mode_name(current));
+    }
+  } else {
+    reported_mode_.store(static_cast<int>(current));
+  }
+  if (current == requested_mode_) {
+    RCLCPP_INFO(this->get_logger(), "tracking service is in tracking_mode %s",
                 tracking_mode_name(current));
     return;
   }
   if (!mode_requested_) {
     mode_requested_ = true;
-    const eLeapRS result = LeapSetTrackingMode(connection_->handle(), tracking_mode_);
+    RCLCPP_INFO(this->get_logger(), "tracking service is in tracking_mode %s, requesting %s",
+                tracking_mode_name(current), tracking_mode_name(requested_mode_));
+    const eLeapRS result = LeapSetTrackingMode(connection_->handle(), requested_mode_);
     if (LEAP_FAILED(result)) {
       RCLCPP_WARN(this->get_logger(), "LeapSetTrackingMode(%s) failed with code %d",
-                  tracking_mode_name(tracking_mode_), static_cast<int>(result));
+                  tracking_mode_name(requested_mode_), static_cast<int>(result));
     }
     return;
   }
   RCLCPP_WARN(this->get_logger(),
-              "tracking service is in mount_mode %s, expected %s; another application may have "
+              "tracking service is in tracking_mode %s, expected %s; another "
+              "application may have "
               "changed it",
-              tracking_mode_name(current), tracking_mode_name(tracking_mode_));
+              tracking_mode_name(current), tracking_mode_name(requested_mode_));
+}
+
+std::string LeapDriverNode::reported_mode_name_now() const {
+  const int mode = reported_mode_.load();
+  return mode < 0 ? std::string(HandArray::UNKNOWN)
+                  : reported_mode_name(static_cast<eLeapTrackingMode>(mode));
 }
 
 void LeapDriverNode::poll_loop() {
@@ -311,6 +351,7 @@ void LeapDriverNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
   array.device_timestamp_us = static_cast<std::uint64_t>(frame->info.timestamp);
   array.framerate = frame->framerate;
   array.is_tracking = true;
+  array.tracking_mode = reported_mode_name_now();
 
   if (frame->pHands != nullptr) {
     array.hands.reserve(frame->nHands);
@@ -361,6 +402,7 @@ void LeapDriverNode::publish_idle() {
   array.header.frame_id = kDeviceFrame;
   array.framerate = 0.0F;
   array.is_tracking = false;
+  array.tracking_mode = reported_mode_name_now();
   hands_pub_->publish(array);
 }
 

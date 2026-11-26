@@ -131,10 +131,10 @@ Eigen::Isometry3d isometry(const geometry_msgs::msg::Transform& transform) {
 // A point in the device frame, through the published transforms, lands where the mapper
 // puts it in base axes, shifted by the display offset.
 TEST(HandFrames, DeviceToBaseMatchesTheTeleopMapping) {
-  using leap_teleop::MountMode;
+  using leap_teleop::TrackingMode;
   const Eigen::Vector3d offset(0.5, -0.1, 0.3);
   const Eigen::Vector3d point(0.03, 0.2, -0.05);
-  for (const MountMode mode : {MountMode::kDesktop, MountMode::kHeadMounted}) {
+  for (const TrackingMode mode : {TrackingMode::kDesktop, TrackingMode::kHeadMounted}) {
     for (const double yaw : {0.0, 90.0, 180.0}) {
       const Eigen::Isometry3d base_from_device =
           isometry(leap_teleop::viz::base_to_operator(yaw, offset)) *
@@ -148,9 +148,9 @@ TEST(HandFrames, DeviceToBaseMatchesTheTeleopMapping) {
 }
 
 TEST(HandFrames, FilteredPalmAxesMatchTheRawPalmAxes) {
-  using leap_teleop::MountMode;
+  using leap_teleop::TrackingMode;
   const Eigen::Quaterniond device_orientation = axis_angle(0.3, -1.0, 0.5, 0.8);
-  for (const MountMode mode : {MountMode::kDesktop, MountMode::kHeadMounted}) {
+  for (const TrackingMode mode : {TrackingMode::kDesktop, TrackingMode::kHeadMounted}) {
     const Eigen::Quaterniond filtered =
         leap_teleop::device_orientation_to_operator(device_orientation, mode);
     const Eigen::Quaterniond raw_in_operator =

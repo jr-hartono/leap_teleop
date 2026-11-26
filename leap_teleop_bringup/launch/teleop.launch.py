@@ -33,14 +33,13 @@ def launch_setup(context, *args):
     use_sim_time = LaunchConfiguration("use_sim_time").perform(context) == "true"
     dry_run = LaunchConfiguration("dry_run").perform(context).lower() == "true"
     side = LaunchConfiguration("side").perform(context)
-    mount_mode = LaunchConfiguration("mount_mode").perform(context)
+    tracking_mode = LaunchConfiguration("tracking_mode").perform(context)
     rviz = LaunchConfiguration("rviz").perform(context).lower() == "true"
 
     parameters = [params_file, {"use_sim_time": use_sim_time}]
     side_parameters = parameters + [{"side": side}]
-    # The driver requests the service's tracking mode, the mapper maps the device axes.
-    driver_parameters = parameters + [{"mount_mode": mount_mode}]
-    mapper_parameters = side_parameters + [{"mount_mode": mount_mode}]
+    # The driver requests the tracking mode; the mapper learns it from the hands.
+    driver_parameters = parameters + [{"tracking_mode": tracking_mode}]
     bridge_parameters = side_parameters + [{"dry_run": dry_run}]
 
     nodes = [
@@ -63,7 +62,7 @@ def launch_setup(context, *args):
             executable="leap_teleop_mapper",
             name="leap_teleop_mapper",
             namespace=leap_namespace,
-            parameters=mapper_parameters,
+            parameters=side_parameters,
         ),
         Node(
             package="leap_teleop_bridge",
@@ -129,9 +128,9 @@ def generate_launch_description():
                 description="Hand that teleoperates the arm: right | left.",
             ),
             DeclareLaunchArgument(
-                "mount_mode",
+                "tracking_mode",
                 default_value="desktop",
-                description="Leap device mounting, for the driver and the mapper: "
+                description="Tracking mode the driver requests from the service: "
                 "desktop | head_mounted.",
             ),
             DeclareLaunchArgument(

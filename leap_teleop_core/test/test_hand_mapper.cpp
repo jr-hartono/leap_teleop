@@ -30,6 +30,19 @@ HandMapperConfig fast_config() {
 
 }  // namespace
 
+TEST(HandMapper, ChangingTrackingModeChangesAxesAndRestartsFilters) {
+  leap_teleop::HandMapper mapper(leap_teleop::HandMapperConfig{});
+  leap_teleop::HandPoseInput input;
+  input.position_m = Eigen::Vector3d(0.0, 0.0, -0.2);  // desktop: toward the operator's forward
+  input.time_sec = 0.0;
+  const auto desktop = mapper.update(input);
+  mapper.set_tracking_mode(leap_teleop::TrackingMode::kHeadMounted);
+  input.time_sec = 0.01;
+  const auto head = mapper.update(input);
+  EXPECT_FALSE(desktop.position.x == head.position.x && desktop.position.y == head.position.y &&
+               desktop.position.z == head.position.z);
+}
+
 TEST(HandMapper, AwayFromOperatorBecomesForward) {
   HandMapper mapper(fast_config());
   HandPoseInput input;
@@ -50,7 +63,7 @@ TEST(HandMapper, HandDownBecomesToolDown) {
 
 TEST(HandMapper, HeadMountedForwardBecomesForward) {
   HandMapperConfig config = fast_config();
-  config.mount_mode = leap_teleop::MountMode::kHeadMounted;
+  config.tracking_mode = leap_teleop::TrackingMode::kHeadMounted;
   HandMapper mapper(config);
   HandPoseInput input;
   input.position_m = Eigen::Vector3d(0.0, 0.1, 0.0);
@@ -69,7 +82,7 @@ TEST(HandMapper, ScalesNeitherPositionNorOrientation) {
   EXPECT_TRUE(point_from_msg(pose.position).isApprox(Eigen::Vector3d(0.2, 0.0, 0.0), 1e-12));
   // Only mapped into operator axes, not scaled.
   const Eigen::Quaterniond expected = leap_teleop::device_orientation_to_operator(
-      input.orientation, leap_teleop::MountMode::kDesktop);
+      input.orientation, leap_teleop::TrackingMode::kDesktop);
   EXPECT_NEAR(std::abs(leap_teleop::quaternion_from_msg(pose.orientation).dot(expected)), 1.0,
               1e-12);
 }
@@ -99,7 +112,7 @@ TEST(HandMapper, OrientationIsNotScaled) {
   const auto pose = mapper.update(input);
   // Only mapped into operator axes, not scaled.
   const Eigen::Quaterniond expected = leap_teleop::device_orientation_to_operator(
-      input.orientation, leap_teleop::MountMode::kDesktop);
+      input.orientation, leap_teleop::TrackingMode::kDesktop);
   EXPECT_NEAR(std::abs(leap_teleop::quaternion_from_msg(pose.orientation).dot(expected)), 1.0,
               1e-12);
 }

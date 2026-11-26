@@ -171,7 +171,8 @@ TEST(DeltaBuilder, OperatorFrameMapperPlusYawMatchesTheCombinedDeviceToBaseMappi
   const Eigen::Quaterniond q0 = axis_angle(0.3, -0.5, 0.8, degrees_to_radians(70.0));
   const Eigen::Quaterniond q1 = axis_angle(1.0, 1.0, 0.0, degrees_to_radians(20.0)) * q0;
 
-  for (const auto mode : {leap_teleop::MountMode::kDesktop, leap_teleop::MountMode::kHeadMounted}) {
+  for (const auto mode :
+       {leap_teleop::TrackingMode::kDesktop, leap_teleop::TrackingMode::kHeadMounted}) {
     for (const double yaw : {0.0, 90.0, 180.0}) {
       // Old path: device -> base in one step.
       DeltaBuilder old_builder;
@@ -184,7 +185,7 @@ TEST(DeltaBuilder, OperatorFrameMapperPlusYawMatchesTheCombinedDeviceToBaseMappi
 
       // New path: hand mapper (operator frame), then the mapper's yaw.
       HandMapperConfig config;
-      config.mount_mode = mode;
+      config.tracking_mode = mode;
       config.deadband_translation_m = 0.0;
       config.deadband_rotation_rad = 0.0;
       const auto to_base = [&](const Eigen::Vector3d& p, const Eigen::Quaterniond& q) {
