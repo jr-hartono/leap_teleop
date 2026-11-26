@@ -236,22 +236,24 @@ void LeapDriverNode::on_tracking_mode(eLeapTrackingMode current) {
     reported_mode_.store(-1);
     if (!unsupported_mode_warned_) {
       unsupported_mode_warned_ = true;
-      RCLCPP_WARN(this->get_logger(),
-                  "tracking service is in tracking_mode %s, which is neither desktop nor "
-                  "head_mounted; hand arrays carry tracking_mode unknown",
-                  tracking_mode_name(current));
+      RCLCPP_WARN(
+          this->get_logger(),
+          "ultraleap-hand-tracking-service is in tracking_mode %s, which is neither desktop nor "
+          "head_mounted; hand arrays carry tracking_mode unknown",
+          tracking_mode_name(current));
     }
   } else {
     reported_mode_.store(static_cast<int>(current));
   }
   if (current == requested_mode_) {
-    RCLCPP_INFO(this->get_logger(), "tracking service is in tracking_mode %s",
+    RCLCPP_INFO(this->get_logger(), "ultraleap-hand-tracking-service is in tracking_mode %s",
                 tracking_mode_name(current));
     return;
   }
   if (!mode_requested_) {
     mode_requested_ = true;
-    RCLCPP_INFO(this->get_logger(), "tracking service is in tracking_mode %s, requesting %s",
+    RCLCPP_INFO(this->get_logger(),
+                "ultraleap-hand-tracking-service is in tracking_mode %s, requesting %s",
                 tracking_mode_name(current), tracking_mode_name(requested_mode_));
     const eLeapRS result = LeapSetTrackingMode(connection_->handle(), requested_mode_);
     if (LEAP_FAILED(result)) {
@@ -261,7 +263,7 @@ void LeapDriverNode::on_tracking_mode(eLeapTrackingMode current) {
     return;
   }
   RCLCPP_WARN(this->get_logger(),
-              "tracking service is in tracking_mode %s, expected %s; another "
+              "ultraleap-hand-tracking-service is in tracking_mode %s, expected %s; another "
               "application may have "
               "changed it",
               tracking_mode_name(current), tracking_mode_name(requested_mode_));
@@ -297,11 +299,11 @@ void LeapDriverNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
   switch (message.type) {
     case eLeapEventType_Connection:
       // The service sends a Device event for each attached device after connecting.
-      RCLCPP_INFO(this->get_logger(), "tracking service connected");
+      RCLCPP_INFO(this->get_logger(), "ultraleap-hand-tracking-service connected");
       break;
 
     case eLeapEventType_ConnectionLost:
-      RCLCPP_WARN(this->get_logger(), "tracking service connection lost");
+      RCLCPP_WARN(this->get_logger(), "ultraleap-hand-tracking-service connection lost");
       mark_device_lost();
       break;
 

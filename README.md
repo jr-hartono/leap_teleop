@@ -21,7 +21,7 @@ Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo
 
 | Topic | Type | From | Content |
 |---|---|---|---|
-| `/leap_teleop/hands` | `HandArray` | driver | All tracked hands as the tracking service reports them, in the device frame, with pinch and grab values, and the tracking mode; the mapper's input |
+| `/leap_teleop/hands` | `HandArray` | driver | All tracked hands as `ultraleap-hand-tracking-service` reports them, in the device frame, with pinch and grab values, and the tracking mode; the mapper's input |
 | `/leap_teleop/teleop_hand/<side>` | `TeleopHand` | mapper | Filtered palm pose in the operator frame and filtered closure, while the hand is visible |
 | `/leap_teleop/deadman` | `DeadmanState` | deadman | Whether the deadman key is held |
 | `/leap_teleop/pose_delta/<side>` | `TeleopDelta` | mapper | Pose change since engagement; the bridge's input |
@@ -37,7 +37,7 @@ The bridge publishes `geometry_msgs/TwistStamped` on `cartesian_command_topic`
 
 - Ubuntu 24.04 with ROS 2 Jazzy
 - Leap Motion Controller (v1) on a USB 3 port
-- Ultraleap Hand Tracking Service, tested with 6.2.0
+- Ultraleap Hand Tracking Service (`ultraleap-hand-tracking-service`), tested with 6.2.0
 
 ## Install
 
@@ -115,10 +115,10 @@ command.
 
    Two launch arguments set values for the nodes:
    - `side`: `right` (default) or `left`, the hand that teleoperates the arm.
-   - `tracking_mode`: the mode the driver requests from the tracking service, `desktop`
-     (default) with the cameras facing up and LED facing the operator, or `head_mounted` with
-     cameras facing forward and the LED facing down. Only the driver reads it; the mapper takes
-     the mode the service reports from the hand array.
+   - `tracking_mode`: the mode the driver requests from `ultraleap-hand-tracking-service`,
+     `desktop` (default) with the cameras facing up and LED facing the operator, or
+     `head_mounted` with cameras facing forward and the LED facing down. Only the driver reads
+     it; the mapper takes the mode the service reports from the hand array.
 
 4. Select Servo's twist input. Servo ignores `command_in_type` in YAML, so do this after every
    Servo start. Also make sure the controller behind Servo's `command_out_topic` is active.
@@ -184,7 +184,7 @@ palm is edge-on to the camera.
 
 ## How it works
 
-The driver only relays what the tracking service reports, in the device frame,
+The driver only relays what `ultraleap-hand-tracking-service` reports, in the device frame,
 together with the tracking mode the service reports; its `tracking_mode` only selects the mode it
 requests. The mapper takes the hand of its `side`, maps the palm into an operator frame following
 [REP 103](https://www.ros.org/reps/rep-0103.html) (x forward, y left, z up), which depends on the
@@ -211,8 +211,8 @@ jumps to where the hand went while it was untracked.
 The bridge stops publishing 0.1 s after the last fresh delta, so Servo's
 `incoming_command_timeout` must be at least 0.1 s, which is its default.
 
-LeapC talks to the tracking service on the same host. If the robot stack runs in a container,
-run the driver and deadman on the host and the rest in the container.
+LeapC talks to `ultraleap-hand-tracking-service` on the same host. If the robot stack runs in a
+container, run the driver and deadman on the host and the rest in the container.
 
 ## Planned
 

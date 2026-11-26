@@ -1,4 +1,4 @@
-# One hand as reported by the tracking service.
+# One hand as reported by ultraleap-hand-tracking-service.
 
 string LEFT="left"
 string RIGHT="right"
