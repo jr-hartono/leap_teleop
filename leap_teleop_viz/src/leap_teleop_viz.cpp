@@ -373,9 +373,9 @@ class VizNode : public rclcpp::Node {
     if (hands_ && time - hands_time_ <= kInputTimeout) {
       std::vector<Marker> raw;
       for (const auto& hand : hands_->hands) {
-        const auto palm_axes = viz::axes(hand.palm, 0.05, 0.004, 0.35F);
+        const auto palm_axes = viz::axes(hand.pose, 0.05, 0.004, 0.35F);
         raw.insert(raw.end(), palm_axes.begin(), palm_axes.end());
-        raw.push_back(sphere(hand.palm.position, 0.03, hand_color(hand.side, 0.35F)));
+        raw.push_back(sphere(hand.pose.position, 0.03, hand_color(hand.side, 0.35F)));
       }
       add(array, raw, kDeviceFrame, kRawPalmNs, kMarkerLifetime);
     }

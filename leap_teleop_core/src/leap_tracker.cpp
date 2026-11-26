@@ -385,13 +385,13 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
       reported.side = (hand.type == eLeapHandType_Left) ? Hand::LEFT : Hand::RIGHT;
       reported.visible_time_us = hand.visible_time;
 
-      reported.palm.position.x = hand.palm.position.x * 0.001F;
-      reported.palm.position.y = hand.palm.position.y * 0.001F;
-      reported.palm.position.z = hand.palm.position.z * 0.001F;
-      reported.palm.orientation.x = hand.palm.orientation.x;
-      reported.palm.orientation.y = hand.palm.orientation.y;
-      reported.palm.orientation.z = hand.palm.orientation.z;
-      reported.palm.orientation.w = hand.palm.orientation.w;
+      reported.pose.position.x = hand.palm.position.x * 0.001F;
+      reported.pose.position.y = hand.palm.position.y * 0.001F;
+      reported.pose.position.z = hand.palm.position.z * 0.001F;
+      reported.pose.orientation.x = hand.palm.orientation.x;
+      reported.pose.orientation.y = hand.palm.orientation.y;
+      reported.pose.orientation.z = hand.palm.orientation.z;
+      reported.pose.orientation.w = hand.palm.orientation.w;
 
       reported.pinch_strength = clamp_unit_strength(hand.pinch_strength);
       reported.pinch_distance = non_negative_distance(hand.pinch_distance);
