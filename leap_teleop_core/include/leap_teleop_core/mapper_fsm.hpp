@@ -20,9 +20,9 @@ struct FsmResult {
   std::string reason;
 };
 
-class SupervisorFsm {
+class MapperFsm {
  public:
-  explicit SupervisorFsm(double hold_timeout);
+  explicit MapperFsm(double hold_timeout);
 
   FsmResult update(const FsmInputs& inputs);
   void reset();

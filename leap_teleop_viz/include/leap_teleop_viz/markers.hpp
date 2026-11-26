@@ -14,7 +14,7 @@ namespace leap_teleop::viz {
 
 std_msgs::msg::ColorRGBA color(float r, float g, float b, float a = 1.0F);
 
-// Undoes the supervisor's scaling: the translation divided by translation_scale, the rotation
+// Undoes the mapper's scaling: the translation divided by translation_scale, the rotation
 // angle divided by rotation_scale about the same axis. Scaled angles beyond 180 degrees wrap, so
 // they come back as the shorter rotation.
 TransformDelta unscale_delta(const TransformDelta& delta, double translation_scale,
@@ -33,11 +33,11 @@ std::array<visualization_msgs::msg::Marker, 3> axes(const geometry_msgs::msg::Po
                                                     double length, double diameter,
                                                     const std_msgs::msg::ColorRGBA& rgba);
 
-// Static transform base frame -> leap_operator_frame: the supervisor's yaw, placed at a
+// Static transform base frame -> leap_operator_frame: the mapper's yaw, placed at a
 // display offset.
 geometry_msgs::msg::Transform base_to_operator(double yaw_deg, const Eigen::Vector3d& offset);
 
-// Static transform leap_operator_frame -> leap_device_frame: the tracker's device -> operator axes.
+// Static transform leap_operator_frame -> leap_device_frame: the driver's device -> operator axes.
 geometry_msgs::msg::Transform operator_to_device(MountMode mode);
 
 }  // namespace leap_teleop::viz

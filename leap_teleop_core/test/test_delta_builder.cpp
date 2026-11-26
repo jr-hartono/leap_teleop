@@ -182,7 +182,7 @@ TEST(DeltaBuilder, OperatorFrameMapperPlusYawMatchesTheCombinedDeviceToBaseMappi
                                         leap_teleop::leap_orientation_to_base(q1, yaw, mode)),
                               1.0, 1.0);
 
-      // New path: tracker mapper (operator frame), then the supervisor's yaw.
+      // New path: hand mapper (operator frame), then the mapper's yaw.
       HandMapperConfig config;
       config.mount_mode = mode;
       config.deadband_translation_m = 0.0;

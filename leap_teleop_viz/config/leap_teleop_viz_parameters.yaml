@@ -1,10 +1,17 @@
 # Parameters of leap_teleop_viz, enforced by the generated ParamListener.
 
 leap_teleop_viz:
+  side:
+    type: string
+    default_value: right
+    description: "Hand whose pose_delta/<side> and command/<side> are shown. Must match the mapper's side: right | left."
+    read_only: true
+    validation:
+      one_of<>: [["right", "left"]]
   base_frame:
     type: string
     default_value: base_link
-    description: "TF frame of the markers. Must match the supervisor's base_frame."
+    description: "TF frame of the markers. Must match the mapper's base_frame."
     read_only: true
     validation:
       not_empty<>: []
@@ -15,10 +22,10 @@ leap_teleop_viz:
     read_only: true
     validation:
       not_empty<>: []
-  supervisor_node:
+  mapper_node:
     type: string
-    default_value: leap_teleop_supervisor
-    description: "Supervisor node to read the scales from, relative to this node's namespace."
+    default_value: leap_teleop_mapper
+    description: "Mapper node to read the scales from, relative to this node's namespace."
     read_only: true
     validation:
       not_empty<>: []
@@ -38,10 +45,10 @@ leap_teleop_viz:
     validation:
       gt<>: [0.0]
       lt_eq<>: [10.0]
-  tracker_node:
+  driver_node:
     type: string
-    default_value: leap_tracker
-    description: "Tracker node to read mount_mode from, relative to this node's namespace."
+    default_value: leap_driver
+    description: "Driver node to read mount_mode from, relative to this node's namespace."
     read_only: true
     validation:
       not_empty<>: []

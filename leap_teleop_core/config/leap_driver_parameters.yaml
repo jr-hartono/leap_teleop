@@ -1,6 +1,6 @@
-# Parameters of leap_tracker, enforced by the generated ParamListener.
+# Parameters of leap_driver, enforced by the generated ParamListener.
 
-leap_tracker:
+leap_driver:
   mount_mode:
     type: string
     default_value: desktop

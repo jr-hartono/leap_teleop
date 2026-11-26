@@ -1,4 +1,4 @@
-# Supervisor state, for diagnostics.
+# Mapper state, for diagnostics.
 
 string IDLE="idle"
 string ENGAGED="engaged"

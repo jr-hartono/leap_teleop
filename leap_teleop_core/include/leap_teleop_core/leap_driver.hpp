@@ -4,7 +4,7 @@
 
 namespace leap_teleop {
 
-// Owns the LeapC connection handle used by the tracker node.
+// Owns the LeapC connection handle used by the driver node.
 class LeapConnection {
  public:
   LeapConnection();

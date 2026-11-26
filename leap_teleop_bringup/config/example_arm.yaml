@@ -1,7 +1,7 @@
 # Example configuration. Every value is the default; copy the file and change it for your robot.
 # (dynamic) marks parameters that can be changed at runtime.
 
-/**/leap_tracker:
+/**/leap_driver:
   ros__parameters:
     # Device mounting: desktop | head_mounted.
     mount_mode: desktop
@@ -27,7 +27,7 @@
     # Keyboard event device path, /dev/input/by-id/...-event-kbd. Empty listens on all keyboards.
     device: ""
 
-/**/leap_teleop_supervisor:
+/**/leap_teleop_mapper:
   ros__parameters:
     # TF frame of the deltas. yaw is relative to it.
     base_frame: base_link
@@ -86,14 +86,14 @@
 
 /**/leap_teleop_viz:
   ros__parameters:
-    # TF frame of the markers. Must match the supervisor's base_frame.
+    # TF frame of the markers. Must match the mapper's base_frame.
     base_frame: base_link
     # TF frame of the TCP. Must match the bridge's tool_frame.
     tool_frame: tool0
-    # Supervisor node to read the scales from, relative to this node's namespace.
-    supervisor_node: leap_teleop_supervisor
-    # Tracker node to read mount_mode from, relative to this node's namespace.
-    tracker_node: leap_tracker
+    # Mapper node to read the scales from, relative to this node's namespace.
+    mapper_node: leap_teleop_mapper
+    # Driver node to read mount_mode from, relative to this node's namespace.
+    driver_node: leap_driver
 
     # Position of leap_operator_frame in base_frame, x y z in meters. Display only.
     leap_operator_frame_offset: [0.0, 0.0, 0.0]

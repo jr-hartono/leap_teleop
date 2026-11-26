@@ -5,7 +5,7 @@ Teleoperate a robot arm with your hand, using the original Leap Motion Controlle
 Hold a key, move your hand, and the end effector follows. Release the key and the arm stops.
 
 ```
-Leap v1 → leap_tracker → leap_teleop_supervisor → leap_moveit_servo_bridge → MoveIt Servo
+Leap v1 → leap_driver → leap_teleop_mapper → leap_moveit_servo_bridge → MoveIt Servo
           hand pose       deadman + pose delta      robot-specific twist
 ```
 
@@ -14,20 +14,20 @@ Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo
 | Package | Contents |
 |---|---|
 | `leap_teleop_msgs` | Message definitions |
-| `leap_teleop_core` | `leap_tracker`, `leap_teleop_deadman`, `leap_teleop_supervisor` nodes |
+| `leap_teleop_core` | `leap_driver`, `leap_teleop_deadman`, `leap_teleop_mapper` nodes |
 | `leap_teleop_bridge` | `leap_moveit_servo_bridge` node |
 | `leap_teleop_viz` | `leap_teleop_viz` node, RViz markers |
 | `leap_teleop_bringup` | Launch files and example configuration |
 
 | Topic | Type | From | Content |
 |---|---|---|---|
-| `/leap_teleop/hands` | `HandArray` | tracker | All tracked hands in the device frame, with pinch and grab values, for diagnostics |
-| `/leap_teleop/hand_pose/left`, `/leap_teleop/hand_pose/right` | `HandPose` | tracker | Filtered palm pose of that hand, in the operator frame, and the raw pinch distance in mm |
+| `/leap_teleop/hands` | `HandArray` | driver | All tracked hands in the device frame, with pinch and grab values, for diagnostics |
+| `/leap_teleop/hand_pose/left`, `/leap_teleop/hand_pose/right` | `TeleopHand` | driver | Filtered palm pose of that hand, in the operator frame, and the raw pinch distance in mm |
 | `/leap_teleop/deadman` | `DeadmanState` | deadman | Whether the deadman key is held |
-| `/leap_teleop/pose_delta` | `TeleopDelta` | supervisor | Pose change since engagement; the bridge's input |
-| `/leap_teleop/gripper` | `TeleopGripper` | supervisor | Gripper closure from 0 (open) to 1 (closed), from the pinch; published only while engaged |
-| `/leap_teleop/state` | `TeleopState` | supervisor | `idle`, `engaged` or `hold`, with the reason |
-| `/leap_teleop/command` | `geometry_msgs/TwistStamped` | bridge | Twist the bridge computed, also in dry run |
+| `/leap_teleop/pose_delta/<side>` | `TeleopDelta` | mapper | Pose change since engagement; the bridge's input |
+| `/leap_teleop/gripper/<side>` | `TeleopGripper` | mapper | Gripper closure from 0 (open) to 1 (closed), from the pinch; published only while engaged |
+| `/leap_teleop/state/<side>` | `TeleopState` | mapper | `idle`, `engaged` or `hold`, with the reason |
+| `/leap_teleop/command/<side>` | `geometry_msgs/TwistStamped` | bridge | Twist the bridge computed, also in dry run |
 | `/leap_teleop/markers` | `visualization_msgs/MarkerArray` | viz | RViz markers of the command and the hands |
 
 The bridge publishes `geometry_msgs/TwistStamped` on `cartesian_command_topic`
@@ -122,7 +122,7 @@ command.
    ros2 service call /servo_node/switch_command_type moveit_msgs/srv/ServoCommandType "{command_type: 1}"
    ```
 
-5. Check the states with `ros2 topic echo /leap_teleop/state`:
+5. Check the states with `ros2 topic echo /leap_teleop/state/right`:
 
    | Do | Expect |
    |---|---|
@@ -178,9 +178,9 @@ palm is edge-on to the camera.
 
 ## How it works
 
-The tracker maps each palm from the controller's axes into an operator frame following
+The driver maps each palm from the controller's axes into an operator frame following
 [REP 103](https://www.ros.org/reps/rep-0103.html) (x forward, y left, z up), which depends on
-`mount_mode`, and filters the pose. The supervisor rotates the pose of its `side` into the robot's
+`mount_mode`, and filters the pose. The mapper rotates the pose of its `side` into the robot's
 base axes by `yaw`. When the key is pressed, it latches the hand pose and publishes the change
 since then, with the translation multiplied by `translation_scale` and the rotation angle
 multiplied by `rotation_scale`. The bridge latches the tool pose from TF on the same
@@ -201,7 +201,7 @@ The bridge stops publishing 0.1 s after the last fresh delta, so Servo's
 `incoming_command_timeout` must be at least 0.1 s, which is its default.
 
 LeapC talks to the tracking service on the same host. If the robot stack runs in a container,
-run the tracker and deadman on the host and the rest in the container.
+run the driver and deadman on the host and the rest in the container.
 
 ## Planned
 
@@ -216,7 +216,7 @@ colcon build --symlink-install
 colcon test && colcon test-result --verbose
 ```
 
-The workspace builds without the Ultraleap service. Only `leap_tracker` is skipped.
+The workspace builds without the Ultraleap service. Only `leap_driver` is skipped.
 
 Each node's parameters are defined in its package's `config/*_parameters.yaml`, which sets types,
 defaults, ranges and whether a parameter can change at runtime. CI checks `example_arm.yaml`

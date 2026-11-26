@@ -8,22 +8,22 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
-def check_tracker_built():
-    tracker = os.path.join(
+def check_driver_built():
+    driver = os.path.join(
         get_package_prefix("leap_teleop_core"),
         "lib",
         "leap_teleop_core",
-        "leap_tracker",
+        "leap_driver",
     )
-    if not os.path.exists(tracker):
+    if not os.path.exists(driver):
         raise RuntimeError(
-            "leap_tracker was not built because LeapSDK was not found. Install the Ultraleap "
+            "leap_driver was not built because LeapSDK was not found. Install the Ultraleap "
             "Hand Tracking Service, then rebuild: colcon build --cmake-clean-cache"
         )
 
 
 def launch_setup(context, *args):
-    check_tracker_built()
+    check_driver_built()
     namespace = LaunchConfiguration("namespace").perform(context)
     if namespace == "/" or not namespace:
         leap_namespace = "/leap_teleop"
@@ -32,16 +32,18 @@ def launch_setup(context, *args):
     params_file = LaunchConfiguration("params_file").perform(context)
     use_sim_time = LaunchConfiguration("use_sim_time").perform(context) == "true"
     dry_run = LaunchConfiguration("dry_run").perform(context).lower() == "true"
+    side = LaunchConfiguration("side").perform(context)
     rviz = LaunchConfiguration("rviz").perform(context).lower() == "true"
 
     parameters = [params_file, {"use_sim_time": use_sim_time}]
-    bridge_parameters = parameters + [{"dry_run": dry_run}]
+    side_parameters = parameters + [{"side": side}]
+    bridge_parameters = side_parameters + [{"dry_run": dry_run}]
 
     nodes = [
         Node(
             package="leap_teleop_core",
-            executable="leap_tracker",
-            name="leap_tracker",
+            executable="leap_driver",
+            name="leap_driver",
             namespace=leap_namespace,
             parameters=parameters,
         ),
@@ -54,10 +56,10 @@ def launch_setup(context, *args):
         ),
         Node(
             package="leap_teleop_core",
-            executable="leap_teleop_supervisor",
-            name="leap_teleop_supervisor",
+            executable="leap_teleop_mapper",
+            name="leap_teleop_mapper",
             namespace=leap_namespace,
-            parameters=parameters,
+            parameters=side_parameters,
         ),
         Node(
             package="leap_teleop_bridge",
@@ -74,7 +76,7 @@ def launch_setup(context, *args):
                 executable="leap_teleop_viz",
                 name="leap_teleop_viz",
                 namespace=leap_namespace,
-                parameters=parameters,
+                parameters=side_parameters,
             ),
             Node(
                 package="rviz2",
@@ -116,6 +118,11 @@ def generate_launch_description():
                 "use_sim_time",
                 default_value="false",
                 description="Use simulation time.",
+            ),
+            DeclareLaunchArgument(
+                "side",
+                default_value="right",
+                description="Hand that teleoperates the arm: right | left.",
             ),
             DeclareLaunchArgument(
                 "dry_run",

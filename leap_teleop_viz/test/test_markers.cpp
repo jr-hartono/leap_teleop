@@ -23,7 +23,7 @@ TransformDelta make_delta(const Eigen::Vector3d& translation, const Eigen::Quate
   return delta;
 }
 
-// The supervisor's scaling, as in DeltaBuilder::compute.
+// The mapper's scaling, as in DeltaBuilder::compute.
 TransformDelta scale(const TransformDelta& delta, double translation_scale, double rotation_scale) {
   return make_delta(translation_scale * delta.translation,
                     quaternion_power(delta.rotation, rotation_scale));
@@ -43,7 +43,7 @@ geometry_msgs::msg::Pose make_pose(const Eigen::Vector3d& position,
 
 }  // namespace
 
-TEST(UnscaleDelta, UndoesTheSupervisorsScaling) {
+TEST(UnscaleDelta, UndoesTheMappersScaling) {
   const TransformDelta hand = make_delta(Eigen::Vector3d(0.1, -0.05, 0.02),
                                          axis_angle(1.0, 2.0, -0.5, degrees_to_radians(40.0)));
   const TransformDelta unscaled = unscale_delta(scale(hand, 2.5, 0.5), 2.5, 0.5);
@@ -128,7 +128,7 @@ Eigen::Isometry3d isometry(const geometry_msgs::msg::Transform& transform) {
 
 }  // namespace
 
-// A point in the device frame, through the published transforms, lands where the supervisor
+// A point in the device frame, through the published transforms, lands where the mapper
 // puts it in base axes, shifted by the display offset.
 TEST(HandFrames, DeviceToBaseMatchesTheTeleopMapping) {
   using leap_teleop::MountMode;

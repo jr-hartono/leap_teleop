@@ -1,10 +1,10 @@
 #include <gtest/gtest.h>
 
-#include "leap_teleop_core/supervisor_fsm.hpp"
+#include "leap_teleop_core/mapper_fsm.hpp"
 
 using leap_teleop::FsmInputs;
+using leap_teleop::MapperFsm;
 using leap_teleop::State;
-using leap_teleop::SupervisorFsm;
 
 namespace {
 
@@ -19,8 +19,8 @@ FsmInputs inputs(bool key_held, bool hand_usable, double time_sec = 0.0) {
 
 }  // namespace
 
-TEST(SupervisorFsm, KeyAndHandEngageWithLatch) {
-  SupervisorFsm fsm(2.0);
+TEST(MapperFsm, KeyAndHandEngageWithLatch) {
+  MapperFsm fsm(2.0);
   const auto idle = fsm.update(inputs(false, true));
   EXPECT_EQ(idle.state, State::kIdle);
   EXPECT_FALSE(idle.latch);
@@ -31,16 +31,16 @@ TEST(SupervisorFsm, KeyAndHandEngageWithLatch) {
   EXPECT_TRUE(engaged.reason.empty());
 }
 
-TEST(SupervisorFsm, KeyReleaseReturnsToIdle) {
-  SupervisorFsm fsm(2.0);
+TEST(MapperFsm, KeyReleaseReturnsToIdle) {
+  MapperFsm fsm(2.0);
   fsm.update(inputs(true, true, 0.0));
   const auto idle = fsm.update(inputs(false, true, 0.1));
   EXPECT_EQ(idle.state, State::kIdle);
   EXPECT_EQ(idle.reason, "key_up");
 }
 
-TEST(SupervisorFsm, UnusableDataEntersHoldAndRequiresRetrigger) {
-  SupervisorFsm fsm(2.0);
+TEST(MapperFsm, UnusableDataEntersHoldAndRequiresRetrigger) {
+  MapperFsm fsm(2.0);
   fsm.update(inputs(true, true, 0.0));
   const auto hold = fsm.update(inputs(true, false, 0.1));
   EXPECT_EQ(hold.state, State::kHold);
@@ -60,8 +60,8 @@ TEST(SupervisorFsm, UnusableDataEntersHoldAndRequiresRetrigger) {
   EXPECT_TRUE(retriggered.latch);
 }
 
-TEST(SupervisorFsm, HoldTimeoutEscalatesEvenWhenDataReturns) {
-  SupervisorFsm fsm(1.0);
+TEST(MapperFsm, HoldTimeoutEscalatesEvenWhenDataReturns) {
+  MapperFsm fsm(1.0);
   fsm.update(inputs(true, true, 0.0));
   fsm.update(inputs(true, false, 0.2));
   const auto usable_again = fsm.update(inputs(true, true, 0.5));
@@ -72,8 +72,8 @@ TEST(SupervisorFsm, HoldTimeoutEscalatesEvenWhenDataReturns) {
   EXPECT_EQ(escalated.reason, "hold_timeout");
 }
 
-TEST(SupervisorFsm, HoldTimeoutEscalatesEvenWhenFramesKeepFailing) {
-  SupervisorFsm fsm(1.0);
+TEST(MapperFsm, HoldTimeoutEscalatesEvenWhenFramesKeepFailing) {
+  MapperFsm fsm(1.0);
   fsm.update(inputs(true, true, 0.0));
   fsm.update(inputs(true, false, 0.5));
   fsm.update(inputs(true, false, 0.9));
@@ -82,8 +82,8 @@ TEST(SupervisorFsm, HoldTimeoutEscalatesEvenWhenFramesKeepFailing) {
   EXPECT_EQ(escalated.reason, "hold_timeout");
 }
 
-TEST(SupervisorFsm, HoldTimeoutThenHeldKeyCannotReengage) {
-  SupervisorFsm fsm(1.0);
+TEST(MapperFsm, HoldTimeoutThenHeldKeyCannotReengage) {
+  MapperFsm fsm(1.0);
   fsm.update(inputs(true, true, 0.0));
   fsm.update(inputs(true, false, 0.2));
   const auto idle = fsm.update(inputs(true, false, 1.3));
@@ -102,16 +102,16 @@ TEST(SupervisorFsm, HoldTimeoutThenHeldKeyCannotReengage) {
   EXPECT_TRUE(pressed.latch);
 }
 
-TEST(SupervisorFsm, ZeroHoldTimeoutKeepsHoldIndefinitely) {
-  SupervisorFsm fsm(0.0);
+TEST(MapperFsm, ZeroHoldTimeoutKeepsHoldIndefinitely) {
+  MapperFsm fsm(0.0);
   fsm.update(inputs(true, true, 0.0));
   fsm.update(inputs(true, false, 1.0));
   const auto still_holding = fsm.update(inputs(true, false, 100.0));
   EXPECT_EQ(still_holding.state, State::kHold);
 }
 
-TEST(SupervisorFsm, IdleRequiresANewKeyPress) {
-  SupervisorFsm fsm(1.0);
+TEST(MapperFsm, IdleRequiresANewKeyPress) {
+  MapperFsm fsm(1.0);
   fsm.update(inputs(true, true, 0.0));
   fsm.update(inputs(false, true, 0.1));
   const auto idle = fsm.update(inputs(false, true, 0.2));

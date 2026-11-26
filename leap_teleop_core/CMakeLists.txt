@@ -11,16 +11,16 @@ find_package(Eigen3 REQUIRED)
 ament_export_dependencies(Eigen3)
 
 find_package(generate_parameter_library REQUIRED)
-generate_parameter_library(leap_tracker_parameters config/leap_tracker_parameters.yaml)
+generate_parameter_library(leap_driver_parameters config/leap_driver_parameters.yaml)
 generate_parameter_library(leap_teleop_deadman_parameters
   config/leap_teleop_deadman_parameters.yaml)
-generate_parameter_library(leap_teleop_supervisor_parameters
-  config/leap_teleop_supervisor_parameters.yaml)
+generate_parameter_library(leap_teleop_mapper_parameters
+  config/leap_teleop_mapper_parameters.yaml)
 
 install(FILES
-  config/leap_tracker_parameters.yaml
+  config/leap_driver_parameters.yaml
   config/leap_teleop_deadman_parameters.yaml
-  config/leap_teleop_supervisor_parameters.yaml
+  config/leap_teleop_mapper_parameters.yaml
   DESTINATION share/${PROJECT_NAME}/parameter_definitions
 )
 
@@ -30,7 +30,7 @@ ament_auto_add_library(leap_hand_mapping SHARED
   src/hand_mapper.cpp
   src/delta_builder.cpp
   src/gripper_mapper.cpp
-  src/supervisor_fsm.cpp
+  src/mapper_fsm.cpp
 )
 target_link_libraries(leap_hand_mapping Eigen3::Eigen)
 
@@ -40,17 +40,17 @@ ament_auto_add_executable(leap_teleop_deadman
 )
 target_link_libraries(leap_teleop_deadman leap_teleop_deadman_parameters)
 
-ament_auto_add_executable(leap_teleop_supervisor
-  src/leap_teleop_supervisor.cpp
+ament_auto_add_executable(leap_teleop_mapper
+  src/leap_teleop_mapper.cpp
 )
-target_link_libraries(leap_teleop_supervisor leap_hand_mapping leap_teleop_supervisor_parameters)
+target_link_libraries(leap_teleop_mapper leap_hand_mapping leap_teleop_mapper_parameters)
 
 find_package(LeapSDK QUIET)
 if(LeapSDK_FOUND)
-  ament_auto_add_executable(leap_tracker src/leap_tracker.cpp)
-  target_link_libraries(leap_tracker leap_hand_mapping leap_tracker_parameters LeapSDK::LeapC)
+  ament_auto_add_executable(leap_driver src/leap_driver.cpp)
+  target_link_libraries(leap_driver leap_hand_mapping leap_driver_parameters LeapSDK::LeapC)
 else()
-  message(STATUS "LeapSDK not found; skipping leap_tracker target")
+  message(STATUS "LeapSDK not found; skipping leap_driver target")
 endif()
 
 if(BUILD_TESTING)
@@ -71,8 +71,8 @@ if(BUILD_TESTING)
   ament_add_gtest(test_gripper_mapper test/test_gripper_mapper.cpp)
   target_link_libraries(test_gripper_mapper leap_hand_mapping)
 
-  ament_add_gtest(test_supervisor_fsm test/test_supervisor_fsm.cpp)
-  target_link_libraries(test_supervisor_fsm leap_hand_mapping)
+  ament_add_gtest(test_mapper_fsm test/test_mapper_fsm.cpp)
+  target_link_libraries(test_mapper_fsm leap_hand_mapping)
 
   ament_add_gtest(test_keyboard_deadman test/test_keyboard_deadman.cpp src/keyboard_deadman.cpp)
   target_link_libraries(test_keyboard_deadman leap_hand_mapping)

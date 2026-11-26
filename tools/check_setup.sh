@@ -12,7 +12,7 @@ has_package() { ros2 pkg prefix "$1"; }
 service_version() { dpkg-query -W -f='${Version}' ultraleap-hand-tracking-service 2>/dev/null; }
 leap_port_open() { ss -ltn | grep -q '127.0.0.1:12345 '; }
 leap_on_usb() { lsusb -d f182: | grep -q .; }
-tracker_built() { ros2 pkg executables leap_teleop_core | grep -q leap_tracker; }
+driver_built() { ros2 pkg executables leap_teleop_core | grep -q leap_driver; }
 keyboard_readable() {
   local dev
   for dev in /dev/input/by-id/*-event-kbd; do [ -r "$dev" ] && return 0; done
@@ -37,10 +37,10 @@ check "service listening on 127.0.0.1:12345" \
   "sudo systemctl restart ultraleap-hand-tracking-service" leap_port_open
 check "Leap Motion Controller on USB" "plug it into a USB 3 port" leap_on_usb
 if has_package leap_teleop_core >/dev/null 2>&1; then
-  check "leap_tracker built" \
-    "rebuild after installing the service: colcon build --cmake-clean-cache" tracker_built
+  check "leap_driver built" \
+    "rebuild after installing the service: colcon build --cmake-clean-cache" driver_built
 else
-  echo "  skip  leap_tracker built (source the workspace first)"
+  echo "  skip  leap_driver built (source the workspace first)"
 fi
 
 echo "Deadman key"

@@ -84,7 +84,7 @@ class MoveItServoBridge : public rclcpp::Node {
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
     target_subscription_ = create_subscription<leap_teleop_msgs::msg::TeleopDelta>(
-        "pose_delta", rclcpp::QoS(rclcpp::KeepLast(1)),
+        "pose_delta/" + params.side, rclcpp::QoS(rclcpp::KeepLast(1)),
         [this](const leap_teleop_msgs::msg::TeleopDelta::SharedPtr message) {
           on_target(*message);
         });
@@ -92,7 +92,7 @@ class MoveItServoBridge : public rclcpp::Node {
         create_publisher<geometry_msgs::msg::TwistStamped>(topic, rclcpp::QoS(rclcpp::KeepLast(1)));
     // Every computed command, also in dry run, for visualization.
     computed_command_publisher_ = create_publisher<geometry_msgs::msg::TwistStamped>(
-        "command", rclcpp::QoS(rclcpp::KeepLast(1)));
+        "command/" + params.side, rclcpp::QoS(rclcpp::KeepLast(1)));
 
     const auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::duration<double>(publish_period_));

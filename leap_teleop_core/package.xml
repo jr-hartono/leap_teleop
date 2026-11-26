@@ -3,7 +3,7 @@
 <package format="3">
   <name>leap_teleop_core</name>
   <version>0.1.0</version>
-  <description>Robot-agnostic tracker, engagement, hand mapping and teleop supervisor.</description>
+  <description>Robot-agnostic driver, engagement, hand mapping and teleop mapper.</description>
   <maintainer email="130978844+jr-hartono@users.noreply.github.com">jr-hartono</maintainer>
   <license>Apache-2.0</license>
 

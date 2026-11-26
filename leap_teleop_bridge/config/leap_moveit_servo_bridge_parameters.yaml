@@ -1,6 +1,13 @@
 # Parameters of leap_moveit_servo_bridge, enforced by the generated ParamListener.
 
 leap_moveit_servo_bridge:
+  side:
+    type: string
+    default_value: right
+    description: "Hand whose pose_delta/<side> the bridge follows, and whose command/<side> it publishes: right | left."
+    read_only: true
+    validation:
+      one_of<>: [["right", "left"]]
   tool_frame:
     type: string
     default_value: tool0

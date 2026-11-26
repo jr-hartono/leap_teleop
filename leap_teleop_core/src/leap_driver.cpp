@@ -1,4 +1,4 @@
-#include "leap_teleop_core/leap_tracker.hpp"
+#include "leap_teleop_core/leap_driver.hpp"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -6,10 +6,10 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
-#include <leap_teleop_core/leap_tracker_parameters.hpp>
+#include <leap_teleop_core/leap_driver_parameters.hpp>
 #include <leap_teleop_msgs/msg/hand.hpp>
 #include <leap_teleop_msgs/msg/hand_array.hpp>
-#include <leap_teleop_msgs/msg/hand_pose.hpp>
+#include <leap_teleop_msgs/msg/teleop_hand.hpp>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -57,7 +57,7 @@ namespace {
 
 using leap_teleop_msgs::msg::Hand;
 using leap_teleop_msgs::msg::HandArray;
-using leap_teleop_msgs::msg::HandPose;
+using leap_teleop_msgs::msg::TeleopHand;
 
 constexpr std::uint32_t kPollTimeoutMs = 10;
 constexpr auto kIdlePeriod = std::chrono::milliseconds(100);
@@ -97,16 +97,16 @@ const char* tracking_mode_name(eLeapTrackingMode mode) {
   }
 }
 
-class LeapTrackerNode : public rclcpp::Node {
+class LeapDriverNode : public rclcpp::Node {
  public:
-  explicit LeapTrackerNode(const rclcpp::NodeOptions& options);
-  ~LeapTrackerNode() override;
+  explicit LeapDriverNode(const rclcpp::NodeOptions& options);
+  ~LeapDriverNode() override;
 
   void start();
   void stop();
 
  private:
-  void apply_tuning(const leap_tracker::Params& params);
+  void apply_tuning(const leap_driver::Params& params);
   void mark_device_lost();
   void reset_mappers();
   void poll_loop();
@@ -118,11 +118,11 @@ class LeapTrackerNode : public rclcpp::Node {
   std::string describe_device(const LEAP_DEVICE_REF& device) const;
 
   rclcpp::Publisher<HandArray>::SharedPtr hands_pub_;
-  rclcpp::Publisher<HandPose>::SharedPtr left_pub_;
-  rclcpp::Publisher<HandPose>::SharedPtr right_pub_;
+  rclcpp::Publisher<TeleopHand>::SharedPtr left_pub_;
+  rclcpp::Publisher<TeleopHand>::SharedPtr right_pub_;
   rclcpp::TimerBase::SharedPtr idle_timer_;
-  std::shared_ptr<leap_tracker::ParamListener> param_listener_;
-  leap_tracker::Params current_params_;
+  std::shared_ptr<leap_driver::ParamListener> param_listener_;
+  leap_driver::Params current_params_;
   std::unique_ptr<PerSideMapper> mapper_;
   std::mutex mapper_mutex_;
   std::unique_ptr<LeapConnection> connection_;
@@ -143,9 +143,9 @@ class LeapTrackerNode : public rclcpp::Node {
   bool missing_device_warned_ = false;
 };
 
-LeapTrackerNode::LeapTrackerNode(const rclcpp::NodeOptions& options)
-    : rclcpp::Node("leap_tracker", options) {
-  param_listener_ = std::make_shared<leap_tracker::ParamListener>(this);
+LeapDriverNode::LeapDriverNode(const rclcpp::NodeOptions& options)
+    : rclcpp::Node("leap_driver", options) {
+  param_listener_ = std::make_shared<leap_driver::ParamListener>(this);
   const auto params = param_listener_->get_params();
   current_params_ = params;
   const MountMode mount_mode = mount_mode_from_string(params.mount_mode);
@@ -161,21 +161,21 @@ LeapTrackerNode::LeapTrackerNode(const rclcpp::NodeOptions& options)
   config.filter_beta = params.filter_beta;
   mapper_ = std::make_unique<PerSideMapper>(config);
   param_listener_->setUserCallback(
-      [this](const leap_tracker::Params& updated) { apply_tuning(updated); });
+      [this](const leap_driver::Params& updated) { apply_tuning(updated); });
 
   hands_pub_ = create_publisher<HandArray>(
       "hands", rclcpp::QoS(rclcpp::KeepLast(5)).best_effort().durability_volatile());
-  left_pub_ = create_publisher<HandPose>("hand_pose/left",
-                                         rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
-  right_pub_ = create_publisher<HandPose>("hand_pose/right",
-                                          rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
+  left_pub_ = create_publisher<TeleopHand>("hand_pose/left",
+                                           rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
+  right_pub_ = create_publisher<TeleopHand>("hand_pose/right",
+                                            rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
 
   idle_timer_ = create_wall_timer(kIdlePeriod, [this]() { publish_idle(); });
 
   connection_ = std::make_unique<LeapConnection>();
 }
 
-void LeapTrackerNode::apply_tuning(const leap_tracker::Params& params) {
+void LeapDriverNode::apply_tuning(const leap_driver::Params& params) {
   const auto log_change = [this](const char* name, double before, double after) {
     if (before != after) {
       RCLCPP_INFO(get_logger(), "parameter '%s' changed: %g -> %g", name, before, after);
@@ -201,7 +201,7 @@ void LeapTrackerNode::apply_tuning(const leap_tracker::Params& params) {
   mapper_->set_tuning(config);
 }
 
-void LeapTrackerNode::mark_device_lost() {
+void LeapDriverNode::mark_device_lost() {
   device_available_.store(false);
   {
     std::lock_guard<std::mutex> lock(state_mutex_);
@@ -211,29 +211,29 @@ void LeapTrackerNode::mark_device_lost() {
   reset_mappers();
 }
 
-void LeapTrackerNode::reset_mappers() {
+void LeapDriverNode::reset_mappers() {
   std::lock_guard<std::mutex> lock(mapper_mutex_);
   mapper_->reset_all();
 }
 
-LeapTrackerNode::~LeapTrackerNode() { stop(); }
+LeapDriverNode::~LeapDriverNode() { stop(); }
 
-void LeapTrackerNode::start() {
+void LeapDriverNode::start() {
   if (poll_thread_) {
     return;
   }
   running_.store(true, std::memory_order_relaxed);
-  poll_thread_ = std::make_unique<std::thread>(&LeapTrackerNode::poll_loop, this);
+  poll_thread_ = std::make_unique<std::thread>(&LeapDriverNode::poll_loop, this);
 }
 
-void LeapTrackerNode::stop() {
+void LeapDriverNode::stop() {
   running_.store(false, std::memory_order_relaxed);
   if (poll_thread_ && poll_thread_->joinable()) {
     poll_thread_->join();
   }
 }
 
-std::string LeapTrackerNode::describe_device(const LEAP_DEVICE_REF& device) const {
+std::string LeapDriverNode::describe_device(const LEAP_DEVICE_REF& device) const {
   LEAP_DEVICE handle = nullptr;
   if (LEAP_FAILED(LeapOpenDevice(device, &handle))) {
     return "unknown device";
@@ -259,9 +259,9 @@ std::string LeapTrackerNode::describe_device(const LEAP_DEVICE_REF& device) cons
 }
 
 // The service keeps one tracking mode for all applications and keeps it after they exit. On each
-// attach the tracker asks for the current mode and requests its own once if it differs; it does
+// attach the driver asks for the current mode and requests its own once if it differs; it does
 // not fight an application that changes the mode afterwards, it only warns.
-void LeapTrackerNode::on_device_attached(const LEAP_DEVICE_REF& device) {
+void LeapDriverNode::on_device_attached(const LEAP_DEVICE_REF& device) {
   const std::string name = describe_device(device);
   device_names_[device.id] = name;
   RCLCPP_INFO(this->get_logger(), "device attached: %s", name.c_str());
@@ -274,7 +274,7 @@ void LeapTrackerNode::on_device_attached(const LEAP_DEVICE_REF& device) {
   }
 }
 
-void LeapTrackerNode::on_tracking_mode(eLeapTrackingMode current) {
+void LeapDriverNode::on_tracking_mode(eLeapTrackingMode current) {
   if (current == tracking_mode_) {
     RCLCPP_INFO(this->get_logger(), "tracking service is in mount_mode %s",
                 tracking_mode_name(current));
@@ -295,7 +295,7 @@ void LeapTrackerNode::on_tracking_mode(eLeapTrackingMode current) {
               tracking_mode_name(current), tracking_mode_name(tracking_mode_));
 }
 
-void LeapTrackerNode::poll_loop() {
+void LeapDriverNode::poll_loop() {
   LEAP_CONNECTION_MESSAGE message{};
 
   while (running_.load(std::memory_order_relaxed)) {
@@ -315,7 +315,7 @@ void LeapTrackerNode::poll_loop() {
   }
 }
 
-void LeapTrackerNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
+void LeapDriverNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
   switch (message.type) {
     case eLeapEventType_Connection:
       // The service sends a Device event for each attached device after connecting.
@@ -359,7 +359,7 @@ void LeapTrackerNode::handle_event(const LEAP_CONNECTION_MESSAGE& message) {
   }
 }
 
-void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
+void LeapDriverNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
   if (frame == nullptr) {
     return;
   }
@@ -410,7 +410,7 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
     }
   }
 
-  HandPose targets[2];
+  TeleopHand targets[2];
   std::optional<geometry_msgs::msg::Pose> poses[2];
   {
     std::lock_guard<std::mutex> lock(mapper_mutex_);
@@ -441,7 +441,7 @@ void LeapTrackerNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
   }
 }
 
-void LeapTrackerNode::publish_idle() {
+void LeapDriverNode::publish_idle() {
   std::lock_guard<std::mutex> lock(state_mutex_);
   const auto now_steady = std::chrono::steady_clock::now();
   const auto without_device = now_steady - device_lost_time_;
@@ -469,7 +469,7 @@ int main(int argc, char** argv) {
   int exit_code = 0;
   try {
     rclcpp::NodeOptions options;
-    auto node = std::make_shared<leap_teleop::LeapTrackerNode>(options);
+    auto node = std::make_shared<leap_teleop::LeapDriverNode>(options);
     node->start();
     try {
       rclcpp::spin(node);
@@ -479,7 +479,7 @@ int main(int argc, char** argv) {
     }
     node->stop();
   } catch (const std::exception& error) {
-    RCLCPP_FATAL(rclcpp::get_logger("leap_tracker"), "leap_tracker could not start: %s",
+    RCLCPP_FATAL(rclcpp::get_logger("leap_driver"), "leap_driver could not start: %s",
                  error.what());
     exit_code = 1;
   }

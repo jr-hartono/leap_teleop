@@ -30,7 +30,7 @@ geometry_msgs::msg::Pose HandMapper::update(const HandPoseInput& input) {
 
   const Eigen::Vector3d with_deadband = translation_deadband_.filter(filtered, input.time_sec);
 
-  // No scaling here: the supervisor scales the change since engagement (DeltaBuilder::compute).
+  // No scaling here: the mapper scales the change since engagement (DeltaBuilder::compute).
   const Eigen::Quaterniond operator_orientation =
       device_orientation_to_operator(input.orientation, config_.mount_mode);
   const Eigen::Quaterniond filtered_orientation =

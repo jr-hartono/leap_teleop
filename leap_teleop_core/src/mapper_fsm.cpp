@@ -1,10 +1,10 @@
-#include "leap_teleop_core/supervisor_fsm.hpp"
+#include "leap_teleop_core/mapper_fsm.hpp"
 
 namespace leap_teleop {
 
-SupervisorFsm::SupervisorFsm(double hold_timeout) : hold_timeout_(hold_timeout) {}
+MapperFsm::MapperFsm(double hold_timeout) : hold_timeout_(hold_timeout) {}
 
-FsmResult SupervisorFsm::update(const FsmInputs& inputs) {
+FsmResult MapperFsm::update(const FsmInputs& inputs) {
   const bool key_rising = inputs.key_held && !last_key_held_;
   last_key_held_ = inputs.key_held;
   bool latch = false;
@@ -53,7 +53,7 @@ FsmResult SupervisorFsm::update(const FsmInputs& inputs) {
   return FsmResult{state_, latch, reason_};
 }
 
-void SupervisorFsm::reset() {
+void MapperFsm::reset() {
   state_ = State::kIdle;
   last_key_held_ = false;
   hold_timer_active_ = false;
@@ -61,6 +61,6 @@ void SupervisorFsm::reset() {
   reason_ = "key_up";
 }
 
-State SupervisorFsm::state() const { return state_; }
+State MapperFsm::state() const { return state_; }
 
 }  // namespace leap_teleop

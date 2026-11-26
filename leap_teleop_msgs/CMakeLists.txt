@@ -12,7 +12,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DeadmanState.msg"
   "msg/Hand.msg"
   "msg/HandArray.msg"
-  "msg/HandPose.msg"
+  "msg/TeleopHand.msg"
   "msg/TeleopState.msg"
   "msg/TeleopDelta.msg"
   "msg/TeleopGripper.msg"

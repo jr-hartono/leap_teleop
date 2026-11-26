@@ -26,7 +26,7 @@ struct HandPoseInput {
   double time_sec = 0.0;
 };
 
-// Device axes -> operator axes (REP 103), filtered. Yaw to the robot base is the supervisor's job.
+// Device axes -> operator axes (REP 103), filtered. Yaw to the robot base is the mapper's job.
 class HandMapper {
  public:
   explicit HandMapper(const HandMapperConfig& config);

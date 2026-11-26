@@ -22,8 +22,8 @@
 #include "leap_teleop_core/frames.hpp"
 #include "leap_teleop_msgs/msg/hand.hpp"
 #include "leap_teleop_msgs/msg/hand_array.hpp"
-#include "leap_teleop_msgs/msg/hand_pose.hpp"
 #include "leap_teleop_msgs/msg/teleop_delta.hpp"
+#include "leap_teleop_msgs/msg/teleop_hand.hpp"
 #include "leap_teleop_viz/markers.hpp"
 
 namespace leap_teleop {
@@ -48,7 +48,7 @@ constexpr char kTwistNs[] = "twist";
 constexpr char kRawPalmNs[] = "raw_palm";
 constexpr char kFilteredPalmNs[] = "filtered_palm";
 
-// Frames of the tracker's messages.
+// Frames of the driver's messages.
 constexpr char kOperatorFrame[] = "leap_operator_frame";
 constexpr char kDeviceFrame[] = "leap_device_frame";
 
@@ -91,12 +91,12 @@ class VizNode : public rclcpp::Node {
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
     delta_subscription_ = create_subscription<leap_teleop_msgs::msg::TeleopDelta>(
-        "pose_delta", rclcpp::QoS(rclcpp::KeepLast(1)),
+        "pose_delta/" + params_.side, rclcpp::QoS(rclcpp::KeepLast(1)),
         [this](const leap_teleop_msgs::msg::TeleopDelta::SharedPtr message) {
           on_delta(*message);
         });
     command_subscription_ = create_subscription<geometry_msgs::msg::TwistStamped>(
-        "command", rclcpp::QoS(rclcpp::KeepLast(1)),
+        "command/" + params_.side, rclcpp::QoS(rclcpp::KeepLast(1)),
         [this](const geometry_msgs::msg::TwistStamped::SharedPtr message) {
           command_ = *message;
           command_time_ = now().seconds();
@@ -104,42 +104,39 @@ class VizNode : public rclcpp::Node {
     marker_publisher_ = create_publisher<MarkerArray>("markers", rclcpp::QoS(rclcpp::KeepLast(10)));
 
     hands_subscription_ = create_subscription<leap_teleop_msgs::msg::HandArray>(
-        // Best effort, matching the tracker; a reliable subscription would receive nothing.
+        // Best effort, matching the driver; a reliable subscription would receive nothing.
         "hands", rclcpp::QoS(rclcpp::KeepLast(1)).best_effort(),
         [this](const leap_teleop_msgs::msg::HandArray::SharedPtr message) {
           hands_ = *message;
           hands_time_ = now().seconds();
         });
     for (std::size_t index = 0; index < kSides.size(); ++index) {
-      hand_pose_subscriptions_[index] = create_subscription<leap_teleop_msgs::msg::HandPose>(
+      hand_pose_subscriptions_[index] = create_subscription<leap_teleop_msgs::msg::TeleopHand>(
           "hand_pose/" + kSides[index], rclcpp::QoS(rclcpp::KeepLast(1)),
-          [this, index](const leap_teleop_msgs::msg::HandPose::SharedPtr message) {
+          [this, index](const leap_teleop_msgs::msg::TeleopHand::SharedPtr message) {
             hand_poses_[index] = *message;
             hand_pose_times_[index] = now().seconds();
           });
     }
     static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
-    tracker_client_ = std::make_shared<rclcpp::AsyncParametersClient>(this, params_.tracker_node);
-    tracker_name_ = get_node_topics_interface()->resolve_topic_name(params_.tracker_node, true);
+    driver_client_ = std::make_shared<rclcpp::AsyncParametersClient>(this, params_.driver_node);
+    driver_name_ = get_node_topics_interface()->resolve_topic_name(params_.driver_node, true);
 
-    // The scales follow the supervisor's parameters: read once, then from parameter events.
-    supervisor_client_ =
-        std::make_shared<rclcpp::AsyncParametersClient>(this, params_.supervisor_node);
-    supervisor_name_ =
-        get_node_topics_interface()->resolve_topic_name(params_.supervisor_node, true);
-    supervisor_events_ = supervisor_client_->on_parameter_event(
+    // The scales follow the mapper's parameters: read once, then from parameter events.
+    mapper_client_ = std::make_shared<rclcpp::AsyncParametersClient>(this, params_.mapper_node);
+    mapper_name_ = get_node_topics_interface()->resolve_topic_name(params_.mapper_node, true);
+    mapper_events_ = mapper_client_->on_parameter_event(
         [this](const rcl_interfaces::msg::ParameterEvent::SharedPtr event) {
-          if (event->node != supervisor_name_) {
+          if (event->node != mapper_name_) {
             return;
           }
           for (const auto& parameter : event->changed_parameters) {
-            set_supervisor_parameter(parameter.name,
-                                     rclcpp::Parameter::from_parameter_msg(parameter));
+            set_mapper_parameter(parameter.name, rclcpp::Parameter::from_parameter_msg(parameter));
           }
         });
     parameter_timer_ = create_wall_timer(std::chrono::milliseconds(500), [this]() {
-      fetch_supervisor();
-      fetch_tracker();
+      fetch_mapper();
+      fetch_driver();
     });
 
     const auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -148,7 +145,7 @@ class VizNode : public rclcpp::Node {
   }
 
  private:
-  void set_supervisor_parameter(const std::string& name, const rclcpp::Parameter& parameter) {
+  void set_mapper_parameter(const std::string& name, const rclcpp::Parameter& parameter) {
     if (parameter.get_type() != rclcpp::ParameterType::PARAMETER_DOUBLE) {
       return;
     }
@@ -168,52 +165,52 @@ class VizNode : public rclcpp::Node {
       return;
     }
     if (*scale != parameter.as_double()) {
-      RCLCPP_INFO(get_logger(), "supervisor %s: %g", name.c_str(), parameter.as_double());
+      RCLCPP_INFO(get_logger(), "mapper %s: %g", name.c_str(), parameter.as_double());
     }
     *scale = parameter.as_double();
   }
 
-  // Reads the supervisor's parameters until all are known. yaw is read-only; the scales
+  // Reads the mapper's parameters until all are known. yaw is read-only; the scales
   // then follow parameter events.
-  void fetch_supervisor() {
-    if ((translation_scale_ && rotation_scale_ && yaw_) || fetching_supervisor_) {
+  void fetch_mapper() {
+    if ((translation_scale_ && rotation_scale_ && yaw_) || fetching_mapper_) {
       return;
     }
-    if (!supervisor_client_->service_is_ready()) {
+    if (!mapper_client_->service_is_ready()) {
       RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 10000,
                            "waiting for %s; no target before scaling or hand view until then",
-                           supervisor_name_.c_str());
+                           mapper_name_.c_str());
       return;
     }
-    fetching_supervisor_ = true;
-    supervisor_client_->get_parameters(
+    fetching_mapper_ = true;
+    mapper_client_->get_parameters(
         {"translation_scale", "rotation_scale", "yaw"},
         [this](std::shared_future<std::vector<rclcpp::Parameter>> future) {
-          fetching_supervisor_ = false;
+          fetching_mapper_ = false;
           try {
             for (const auto& parameter : future.get()) {
-              set_supervisor_parameter(parameter.get_name(), parameter);
+              set_mapper_parameter(parameter.get_name(), parameter);
             }
           } catch (const std::exception& error) {
-            RCLCPP_WARN(get_logger(), "cannot read the supervisor's parameters: %s", error.what());
+            RCLCPP_WARN(get_logger(), "cannot read the mapper's parameters: %s", error.what());
           }
         });
   }
 
-  // Reads the tracker's read-only mount_mode once.
-  void fetch_tracker() {
-    if (mount_mode_ || fetching_tracker_) {
+  // Reads the driver's read-only mount_mode once.
+  void fetch_driver() {
+    if (mount_mode_ || fetching_driver_) {
       return;
     }
-    if (!tracker_client_->service_is_ready()) {
+    if (!driver_client_->service_is_ready()) {
       RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 10000,
-                           "waiting for %s; no hand view until then", tracker_name_.c_str());
+                           "waiting for %s; no hand view until then", driver_name_.c_str());
       return;
     }
-    fetching_tracker_ = true;
-    tracker_client_->get_parameters(
+    fetching_driver_ = true;
+    driver_client_->get_parameters(
         {"mount_mode"}, [this](std::shared_future<std::vector<rclcpp::Parameter>> future) {
-          fetching_tracker_ = false;
+          fetching_driver_ = false;
           try {
             const auto parameters = future.get();
             if (parameters.empty() ||
@@ -223,7 +220,7 @@ class VizNode : public rclcpp::Node {
             mount_mode_ = mount_mode_from_string(parameters[0].as_string());
             publish_static_transforms();
           } catch (const std::exception& error) {
-            RCLCPP_WARN(get_logger(), "cannot read the tracker's mount_mode: %s", error.what());
+            RCLCPP_WARN(get_logger(), "cannot read the driver's mount_mode: %s", error.what());
           }
         });
   }
@@ -438,26 +435,26 @@ class VizNode : public rclcpp::Node {
   inline static const std::array<std::string, 2> kSides = {Hand::LEFT, Hand::RIGHT};
   std::optional<leap_teleop_msgs::msg::HandArray> hands_;
   double hands_time_ = 0.0;
-  std::array<std::optional<leap_teleop_msgs::msg::HandPose>, 2> hand_poses_;
+  std::array<std::optional<leap_teleop_msgs::msg::TeleopHand>, 2> hand_poses_;
   std::array<double, 2> hand_pose_times_{};
 
-  std::shared_ptr<rclcpp::AsyncParametersClient> supervisor_client_;
-  std::string supervisor_name_;
+  std::shared_ptr<rclcpp::AsyncParametersClient> mapper_client_;
+  std::string mapper_name_;
   std::optional<double> translation_scale_;
   std::optional<double> rotation_scale_;
   std::optional<double> yaw_;
-  bool fetching_supervisor_ = false;
-  std::shared_ptr<rclcpp::AsyncParametersClient> tracker_client_;
-  std::string tracker_name_;
+  bool fetching_mapper_ = false;
+  std::shared_ptr<rclcpp::AsyncParametersClient> driver_client_;
+  std::string driver_name_;
   std::optional<MountMode> mount_mode_;
-  bool fetching_tracker_ = false;
+  bool fetching_driver_ = false;
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_broadcaster_;
 
   rclcpp::Subscription<leap_teleop_msgs::msg::TeleopDelta>::SharedPtr delta_subscription_;
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr command_subscription_;
-  rclcpp::Subscription<rcl_interfaces::msg::ParameterEvent>::SharedPtr supervisor_events_;
+  rclcpp::Subscription<rcl_interfaces::msg::ParameterEvent>::SharedPtr mapper_events_;
   rclcpp::Subscription<leap_teleop_msgs::msg::HandArray>::SharedPtr hands_subscription_;
-  std::array<rclcpp::Subscription<leap_teleop_msgs::msg::HandPose>::SharedPtr, 2>
+  std::array<rclcpp::Subscription<leap_teleop_msgs::msg::TeleopHand>::SharedPtr, 2>
       hand_pose_subscriptions_;
   rclcpp::Publisher<MarkerArray>::SharedPtr marker_publisher_;
   rclcpp::TimerBase::SharedPtr parameter_timer_;
