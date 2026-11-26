@@ -44,6 +44,13 @@ leap_teleop_mapper:
     read_only: true
     validation:
       bounds<>: [-180.0, 180.0]
+  mount_mode:
+    type: string
+    default_value: desktop
+    description: "Device mounting: desktop | head_mounted."
+    read_only: true
+    validation:
+      one_of<>: [["desktop", "head_mounted"]]
   translation_scale:
     type: double
     default_value: 1.0
@@ -60,6 +67,42 @@ leap_teleop_mapper:
     validation:
       gt<>: [0.0]
       lt_eq<>: [10.0]
+  deadband_translation:
+    type: double
+    default_value: 0.002
+    description: "Hand travel ignored at rest, in meters."
+    read_only: false
+    validation:
+      bounds<>: [0.0, 0.05]
+  deadband_rotation:
+    type: double
+    default_value: 0.5
+    description: "Hand rotation ignored at rest, in degrees."
+    read_only: false
+    validation:
+      bounds<>: [0.0, 5.0]
+  deadband_hysteresis:
+    type: double
+    default_value: 1.5
+    description: "Factor needed to leave the deadband."
+    read_only: false
+    validation:
+      bounds<>: [1.0, 4.0]
+  filter_min_cutoff:
+    type: double
+    default_value: 1.0
+    description: "One-Euro filter cutoff at rest, in Hz. Lower is smoother but laggier."
+    read_only: false
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [100.0]
+  filter_beta:
+    type: double
+    default_value: 0.05
+    description: "One-Euro filter speed coefficient. Higher follows fast motion better."
+    read_only: false
+    validation:
+      bounds<>: [0.0, 1.0]
   pinch_closed_mm:
     type: double
     default_value: 20.0

@@ -68,29 +68,4 @@ void HandMapper::reset() {
   rotation_deadband_.reset();
 }
 
-PerSideMapper::PerSideMapper(const HandMapperConfig& config)
-    : mappers_{HandMapper(config), HandMapper(config)} {}
-
-std::optional<geometry_msgs::msg::Pose> PerSideMapper::update(
-    HandSide side, const std::optional<HandPoseInput>& input) {
-  HandMapper& mapper = mappers_[static_cast<std::size_t>(side)];
-  if (!input) {
-    mapper.reset();
-    return std::nullopt;
-  }
-  return mapper.update(*input);
-}
-
-void PerSideMapper::set_tuning(const HandMapperConfig& config) {
-  for (HandMapper& mapper : mappers_) {
-    mapper.set_tuning(config);
-  }
-}
-
-void PerSideMapper::reset_all() {
-  for (HandMapper& mapper : mappers_) {
-    mapper.reset();
-  }
-}
-
 }  // namespace leap_teleop

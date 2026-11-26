@@ -112,7 +112,7 @@ class VizNode : public rclcpp::Node {
         });
     for (std::size_t index = 0; index < kSides.size(); ++index) {
       hand_pose_subscriptions_[index] = create_subscription<leap_teleop_msgs::msg::TeleopHand>(
-          "hand_pose/" + kSides[index], rclcpp::QoS(rclcpp::KeepLast(1)),
+          "teleop_hand/" + kSides[index], rclcpp::QoS(rclcpp::KeepLast(1)),
           [this, index](const leap_teleop_msgs::msg::TeleopHand::SharedPtr message) {
             hand_poses_[index] = *message;
             hand_pose_times_[index] = now().seconds();

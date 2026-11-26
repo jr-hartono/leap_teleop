@@ -2,10 +2,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <array>
-#include <cstdint>
 #include <geometry_msgs/msg/pose.hpp>
-#include <optional>
 
 #include "leap_teleop_core/filters.hpp"
 
@@ -50,22 +47,5 @@ class HandMapper {
 // NaN becomes 0.
 float clamp_unit_strength(float value);
 float non_negative_distance(float value);
-
-enum class HandSide { kLeft = 0, kRight = 1 };
-
-// One HandMapper per side, so a hand that disappears resets only its own filters and deadbands.
-class PerSideMapper {
- public:
-  explicit PerSideMapper(const HandMapperConfig& config);
-
-  // A present hand is mapped; an absent one (nullopt) resets that side only and returns nullopt.
-  std::optional<geometry_msgs::msg::Pose> update(HandSide side,
-                                                 const std::optional<HandPoseInput>& input);
-  void set_tuning(const HandMapperConfig& config);
-  void reset_all();
-
- private:
-  std::array<HandMapper, 2> mappers_;
-};
 
 }  // namespace leap_teleop

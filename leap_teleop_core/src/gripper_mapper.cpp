@@ -17,20 +17,32 @@ double pinch_to_closure(double pinch_mm, double pinch_closed_mm, double pinch_op
   return std::min(closure, 1.0);
 }
 
-GripperMapper::GripperMapper(const GripperMapperConfig& config)
+ClosureFilter::ClosureFilter(const GripperMapperConfig& config)
     : config_(config), filter_(config.filter_min_cutoff_hz, config.filter_beta) {}
 
-void GripperMapper::begin_engagement() {
-  filter_.reset();
-  last_emitted_.reset();
+ClosureSample ClosureFilter::update(double pinch_mm, double time_sec) {
+  ClosureSample sample;
+  sample.raw = pinch_to_closure(pinch_mm, config_.pinch_closed_mm, config_.pinch_open_mm);
+  sample.filtered = std::clamp(filter_.filter(sample.raw, time_sec), 0.0, 1.0);
+  return sample;
 }
 
-std::optional<float> GripperMapper::update(double pinch_mm, double time_sec) {
-  const double raw = pinch_to_closure(pinch_mm, config_.pinch_closed_mm, config_.pinch_open_mm);
-  double closure = std::clamp(filter_.filter(raw, time_sec), 0.0, 1.0);
-  const bool at_end = raw == 0.0 || raw == 1.0;
-  if (at_end && std::abs(closure - raw) <= config_.deadband) {
-    closure = raw;
+void ClosureFilter::reset() { filter_.reset(); }
+
+void ClosureFilter::set_config(const GripperMapperConfig& config) {
+  config_ = config;
+  filter_.set_parameters(config.filter_min_cutoff_hz, config.filter_beta);
+}
+
+ClosureGate::ClosureGate(const GripperMapperConfig& config) : config_(config) {}
+
+void ClosureGate::begin_engagement() { last_emitted_.reset(); }
+
+std::optional<float> ClosureGate::update(const ClosureSample& sample) {
+  double closure = sample.filtered;
+  const bool at_end = sample.raw == 0.0 || sample.raw == 1.0;
+  if (at_end && std::abs(closure - sample.raw) <= config_.deadband) {
+    closure = sample.raw;
   }
   const auto value = static_cast<float>(closure);
   if (!last_emitted_) {
@@ -46,9 +58,6 @@ std::optional<float> GripperMapper::update(double pinch_mm, double time_sec) {
   return std::nullopt;
 }
 
-void GripperMapper::set_config(const GripperMapperConfig& config) {
-  config_ = config;
-  filter_.set_parameters(config.filter_min_cutoff_hz, config.filter_beta);
-}
+void ClosureGate::set_config(const GripperMapperConfig& config) { config_ = config; }
 
 }  // namespace leap_teleop

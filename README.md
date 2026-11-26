@@ -6,7 +6,7 @@ Hold a key, move your hand, and the end effector follows. Release the key and th
 
 ```
 Leap v1 → leap_driver → leap_teleop_mapper → leap_moveit_servo_bridge → MoveIt Servo
-          hand pose       deadman + pose delta      robot-specific twist
+          raw hands       filtering + pose delta    robot-specific twist
 ```
 
 Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo setup.
@@ -21,8 +21,8 @@ Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo
 
 | Topic | Type | From | Content |
 |---|---|---|---|
-| `/leap_teleop/hands` | `HandArray` | driver | All tracked hands in the device frame, with pinch and grab values, for diagnostics |
-| `/leap_teleop/hand_pose/left`, `/leap_teleop/hand_pose/right` | `TeleopHand` | driver | Filtered palm pose of that hand, in the operator frame, and the raw pinch distance in mm |
+| `/leap_teleop/hands` | `HandArray` | driver | All tracked hands as the tracking service reports them, in the device frame, with pinch and grab values; the mapper's input |
+| `/leap_teleop/teleop_hand/<side>` | `TeleopHand` | mapper | Filtered palm pose in the operator frame and filtered closure, while the hand is visible |
 | `/leap_teleop/deadman` | `DeadmanState` | deadman | Whether the deadman key is held |
 | `/leap_teleop/pose_delta/<side>` | `TeleopDelta` | mapper | Pose change since engagement; the bridge's input |
 | `/leap_teleop/gripper/<side>` | `TeleopGripper` | mapper | Gripper closure from 0 (open) to 1 (closed), from the pinch; published only while engaged |
@@ -107,8 +107,9 @@ command.
    - `cartesian_command_topic`, matching Servo's `cartesian_command_in_topic`.
    - `yaw`: 0 when the robot and the operator face the same way, 180 when the arm faces the
      operator across the desk.
-   - `mount_mode`: `desktop` with the cameras facing up and LED facing the operator, or `head_mounted`
-     with cameras facing forward and the LED facing down.
+   - `mount_mode`: `desktop` with the cameras facing up and LED facing the operator, or
+     `head_mounted` with cameras facing forward and the LED facing down. Set the same value for
+     the driver and the mapper.
 3. Launch. `dry_run` defaults to true, which logs commands instead of sending them to Servo:
 
    ```bash
@@ -178,14 +179,16 @@ palm is edge-on to the camera.
 
 ## How it works
 
-The driver maps each palm from the controller's axes into an operator frame following
-[REP 103](https://www.ros.org/reps/rep-0103.html) (x forward, y left, z up), which depends on
-`mount_mode`, and filters the pose. The mapper rotates the pose of its `side` into the robot's
-base axes by `yaw`. When the key is pressed, it latches the hand pose and publishes the change
-since then, with the translation multiplied by `translation_scale` and the rotation angle
-multiplied by `rotation_scale`. The bridge latches the tool pose from TF on the same
-press, adds the translation, applies the rotation about the tool origin, and drives Servo with a P
-controller clamped to the speed caps.
+The driver only relays what the tracking service reports, in the device frame; `mount_mode` there
+only selects the service's tracking mode. The mapper takes the hand of its `side`, maps the palm
+into an operator frame following [REP 103](https://www.ros.org/reps/rep-0103.html) (x forward,
+y left, z up), which depends on `mount_mode`, and filters the pose and the pinch closure. It
+publishes the result as `teleop_hand/<side>`, rotates the pose into the robot's base axes by
+`yaw`, and gates the gripper closure with `gripper_deadband` while engaged. When the key is
+pressed, it latches the hand pose and publishes the change since then, with the translation
+multiplied by `translation_scale` and the rotation angle multiplied by `rotation_scale`. The
+bridge latches the tool pose from TF on the same press, adds the translation, applies the
+rotation about the tool origin, and drives Servo with a P controller clamped to the speed caps.
 
 | State | When | Motion |
 |---|---|---|

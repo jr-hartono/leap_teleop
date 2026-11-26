@@ -1,7 +1,5 @@
 #include "leap_teleop_core/leap_driver.hpp"
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -9,10 +7,8 @@
 #include <leap_teleop_core/leap_driver_parameters.hpp>
 #include <leap_teleop_msgs/msg/hand.hpp>
 #include <leap_teleop_msgs/msg/hand_array.hpp>
-#include <leap_teleop_msgs/msg/teleop_hand.hpp>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <rclcpp/rclcpp.hpp>
 #include <stdexcept>
 #include <string>
@@ -57,14 +53,12 @@ namespace {
 
 using leap_teleop_msgs::msg::Hand;
 using leap_teleop_msgs::msg::HandArray;
-using leap_teleop_msgs::msg::TeleopHand;
 
 constexpr std::uint32_t kPollTimeoutMs = 10;
 constexpr auto kIdlePeriod = std::chrono::milliseconds(100);
 constexpr auto kFrameTimeout = std::chrono::milliseconds(250);
 constexpr auto kDeviceWarnDelay = std::chrono::seconds(2);
 constexpr char kDeviceFrame[] = "leap_device_frame";
-constexpr char kHandFrame[] = "leap_operator_frame";
 
 // Names the service's tracking mode after the matching mount_mode value.
 // Product names for the devices whose LeapC names are codenames, such as "Peripheral" for the
@@ -106,9 +100,7 @@ class LeapDriverNode : public rclcpp::Node {
   void stop();
 
  private:
-  void apply_tuning(const leap_driver::Params& params);
   void mark_device_lost();
-  void reset_mappers();
   void poll_loop();
   void handle_event(const LEAP_CONNECTION_MESSAGE& message);
   void publish_tracking(const LEAP_TRACKING_EVENT* frame);
@@ -118,13 +110,8 @@ class LeapDriverNode : public rclcpp::Node {
   std::string describe_device(const LEAP_DEVICE_REF& device) const;
 
   rclcpp::Publisher<HandArray>::SharedPtr hands_pub_;
-  rclcpp::Publisher<TeleopHand>::SharedPtr left_pub_;
-  rclcpp::Publisher<TeleopHand>::SharedPtr right_pub_;
   rclcpp::TimerBase::SharedPtr idle_timer_;
   std::shared_ptr<leap_driver::ParamListener> param_listener_;
-  leap_driver::Params current_params_;
-  std::unique_ptr<PerSideMapper> mapper_;
-  std::mutex mapper_mutex_;
   std::unique_ptr<LeapConnection> connection_;
   std::unique_ptr<std::thread> poll_thread_;
 
@@ -147,58 +134,15 @@ LeapDriverNode::LeapDriverNode(const rclcpp::NodeOptions& options)
     : rclcpp::Node("leap_driver", options) {
   param_listener_ = std::make_shared<leap_driver::ParamListener>(this);
   const auto params = param_listener_->get_params();
-  current_params_ = params;
   const MountMode mount_mode = mount_mode_from_string(params.mount_mode);
   tracking_mode_ =
       (mount_mode == MountMode::kHeadMounted) ? eLeapTrackingMode_HMD : eLeapTrackingMode_Desktop;
 
-  HandMapperConfig config;
-  config.mount_mode = mount_mode;
-  config.deadband_translation_m = params.deadband_translation;
-  config.deadband_rotation_rad = degrees_to_radians(params.deadband_rotation);
-  config.deadband_hysteresis = params.deadband_hysteresis;
-  config.filter_min_cutoff_hz = params.filter_min_cutoff;
-  config.filter_beta = params.filter_beta;
-  mapper_ = std::make_unique<PerSideMapper>(config);
-  param_listener_->setUserCallback(
-      [this](const leap_driver::Params& updated) { apply_tuning(updated); });
-
   hands_pub_ = create_publisher<HandArray>(
       "hands", rclcpp::QoS(rclcpp::KeepLast(5)).best_effort().durability_volatile());
-  left_pub_ = create_publisher<TeleopHand>("hand_pose/left",
-                                           rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
-  right_pub_ = create_publisher<TeleopHand>("hand_pose/right",
-                                            rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile());
-
   idle_timer_ = create_wall_timer(kIdlePeriod, [this]() { publish_idle(); });
 
   connection_ = std::make_unique<LeapConnection>();
-}
-
-void LeapDriverNode::apply_tuning(const leap_driver::Params& params) {
-  const auto log_change = [this](const char* name, double before, double after) {
-    if (before != after) {
-      RCLCPP_INFO(get_logger(), "parameter '%s' changed: %g -> %g", name, before, after);
-    }
-  };
-  log_change("deadband_translation", current_params_.deadband_translation,
-             params.deadband_translation);
-  log_change("deadband_rotation", current_params_.deadband_rotation, params.deadband_rotation);
-  log_change("deadband_hysteresis", current_params_.deadband_hysteresis,
-             params.deadband_hysteresis);
-  log_change("filter_min_cutoff", current_params_.filter_min_cutoff, params.filter_min_cutoff);
-  log_change("filter_beta", current_params_.filter_beta, params.filter_beta);
-  current_params_ = params;
-
-  HandMapperConfig config;
-  config.deadband_translation_m = params.deadband_translation;
-  config.deadband_rotation_rad = degrees_to_radians(params.deadband_rotation);
-  config.deadband_hysteresis = params.deadband_hysteresis;
-  config.filter_min_cutoff_hz = params.filter_min_cutoff;
-  config.filter_beta = params.filter_beta;
-
-  std::lock_guard<std::mutex> lock(mapper_mutex_);
-  mapper_->set_tuning(config);
 }
 
 void LeapDriverNode::mark_device_lost() {
@@ -208,12 +152,6 @@ void LeapDriverNode::mark_device_lost() {
     device_lost_time_ = std::chrono::steady_clock::now();
     missing_device_warned_ = false;
   }
-  reset_mappers();
-}
-
-void LeapDriverNode::reset_mappers() {
-  std::lock_guard<std::mutex> lock(mapper_mutex_);
-  mapper_->reset_all();
 }
 
 LeapDriverNode::~LeapDriverNode() { stop(); }
@@ -374,9 +312,6 @@ void LeapDriverNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
   array.framerate = frame->framerate;
   array.is_tracking = true;
 
-  std::optional<HandPoseInput> inputs[2];  // Indexed by HandSide.
-  float pinch_distances_mm[2] = {0.0F, 0.0F};
-
   if (frame->pHands != nullptr) {
     array.hands.reserve(frame->nHands);
     for (std::uint32_t index = 0; index < frame->nHands; ++index) {
@@ -397,45 +332,13 @@ void LeapDriverNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
       reported.pinch_distance = non_negative_distance(hand.pinch_distance);
       reported.grab_strength = clamp_unit_strength(hand.grab_strength);
 
-      HandPoseInput input;
-      input.position_m =
-          Eigen::Vector3d(hand.palm.position.x, hand.palm.position.y, hand.palm.position.z) * 0.001;
-      input.orientation =
-          normalized(Eigen::Quaterniond(hand.palm.orientation.w, hand.palm.orientation.x,
-                                        hand.palm.orientation.y, hand.palm.orientation.z));
-      input.time_sec = stamp.seconds();
-      inputs[reported.side == Hand::LEFT ? 0 : 1] = input;
-      pinch_distances_mm[reported.side == Hand::LEFT ? 0 : 1] = reported.pinch_distance;
       array.hands.push_back(reported);
     }
-  }
-
-  TeleopHand targets[2];
-  std::optional<geometry_msgs::msg::Pose> poses[2];
-  {
-    std::lock_guard<std::mutex> lock(mapper_mutex_);
-    poses[0] = mapper_->update(HandSide::kLeft, inputs[0]);
-    poses[1] = mapper_->update(HandSide::kRight, inputs[1]);
-  }
-  for (int side = 0; side < 2; ++side) {
-    if (!poses[side]) {
-      continue;
-    }
-    targets[side].header.stamp = stamp;
-    targets[side].header.frame_id = kHandFrame;
-    targets[side].pose = *poses[side];
-    targets[side].pinch_distance = pinch_distances_mm[side];
   }
 
   {
     std::lock_guard<std::mutex> lock(state_mutex_);
     hands_pub_->publish(array);
-    if (poses[0]) {
-      left_pub_->publish(targets[0]);
-    }
-    if (poses[1]) {
-      right_pub_->publish(targets[1]);
-    }
     last_frame_time_ = std::chrono::steady_clock::now();
     missing_device_warned_ = false;
   }

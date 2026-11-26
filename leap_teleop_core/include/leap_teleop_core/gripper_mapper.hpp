@@ -22,21 +22,42 @@ struct GripperMapperConfig {
 [[nodiscard]] double pinch_to_closure(double pinch_mm, double pinch_closed_mm,
                                       double pinch_open_mm);
 
-class GripperMapper {
- public:
-  explicit GripperMapper(const GripperMapperConfig& config);
+// One closure reading: the raw value from the pinch distance and its filtered value.
+struct ClosureSample {
+  double raw = 0.0;
+  double filtered = 0.0;
+};
 
-  // Starts a new engagement: clears the filter, and the next sample is always emitted.
-  void begin_engagement();
-  // Returns the closure to publish, or nothing when it changed less than the deadband. A raw
-  // closure of exactly 0 or 1 snaps the output to that end once the filter is within the
-  // deadband of it, so the ends are reachable.
-  [[nodiscard]] std::optional<float> update(double pinch_mm, double time_sec);
+// Pinch distance -> filtered closure. Runs continuously while the hand is visible.
+class ClosureFilter {
+ public:
+  explicit ClosureFilter(const GripperMapperConfig& config);
+
+  [[nodiscard]] ClosureSample update(double pinch_mm, double time_sec);
+  // Clears the filter, for a lost hand. The next sample passes unfiltered.
+  void reset();
   void set_config(const GripperMapperConfig& config);
 
  private:
   GripperMapperConfig config_;
   OneEuroFilter filter_;
+};
+
+// Decides which closures to publish during one engagement.
+class ClosureGate {
+ public:
+  explicit ClosureGate(const GripperMapperConfig& config);
+
+  // Starts a new engagement: the next closure is always emitted.
+  void begin_engagement();
+  // Returns the closure to publish, or nothing when it changed less than the deadband from the
+  // last one emitted. A raw closure of exactly 0 or 1 snaps the output to that end once the
+  // filtered closure is within the deadband of it, so the ends are reachable.
+  [[nodiscard]] std::optional<float> update(const ClosureSample& sample);
+  void set_config(const GripperMapperConfig& config);
+
+ private:
+  GripperMapperConfig config_;
   std::optional<float> last_emitted_;
 };
 

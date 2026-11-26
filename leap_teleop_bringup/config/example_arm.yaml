@@ -3,20 +3,8 @@
 
 /**/leap_driver:
   ros__parameters:
-    # Device mounting: desktop | head_mounted.
+    # Device mounting: desktop | head_mounted. Must match leap_teleop_mapper's.
     mount_mode: desktop
-
-    # Hand travel ignored at rest, in meters. (dynamic)
-    deadband_translation: 0.002
-    # Hand rotation ignored at rest, in degrees. (dynamic)
-    deadband_rotation: 0.5
-    # Factor needed to leave the deadband. (dynamic)
-    deadband_hysteresis: 1.5
-
-    # One-Euro filter cutoff at rest, in Hz. Lower is smoother but laggier. (dynamic)
-    filter_min_cutoff: 5.0
-    # One-Euro filter speed coefficient. Higher follows fast motion better. (dynamic)
-    filter_beta: 0.05
 
 /**/leap_teleop_deadman:
   ros__parameters:
@@ -29,6 +17,8 @@
 
 /**/leap_teleop_mapper:
   ros__parameters:
+    # Device mounting: desktop | head_mounted. Must match leap_driver's.
+    mount_mode: desktop
     # TF frame of the deltas. yaw is relative to it.
     base_frame: base_link
 
@@ -49,10 +39,22 @@
     # Hand-to-tool rotation ratio, applied to the hand rotation since the key press. (dynamic)
     rotation_scale: 1.0
 
+    # Hand travel ignored at rest, in meters. (dynamic)
+    deadband_translation: 0.002
+    # Hand rotation ignored at rest, in degrees. (dynamic)
+    deadband_rotation: 0.5
+    # Factor needed to leave the deadband. (dynamic)
+    deadband_hysteresis: 1.5
+    # One-Euro filter cutoff at rest, in Hz. Lower is smoother but laggier. (dynamic)
+    filter_min_cutoff: 5.0
+    # One-Euro filter speed coefficient. Higher follows fast motion better. (dynamic)
+    filter_beta: 0.05
+
     # Pinch distance at which the gripper target is fully closed, in mm. Below pinch_open_mm. (dynamic)
     pinch_closed_mm: 20.0
     # Pinch distance at which the gripper target is fully open, in mm. Above pinch_closed_mm. (dynamic)
     pinch_open_mm: 70.0
+
     # One-Euro filter cutoff at rest for the gripper closure, in Hz. (dynamic)
     gripper_filter_min_cutoff: 1.0
     # One-Euro filter speed coefficient for the gripper closure. (dynamic)
