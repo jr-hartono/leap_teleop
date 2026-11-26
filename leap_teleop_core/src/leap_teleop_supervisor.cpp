@@ -4,6 +4,7 @@
 #include <cmath>
 #include <leap_teleop_core/leap_teleop_supervisor_parameters.hpp>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <rclcpp/rclcpp.hpp>
 #include <stdexcept>
@@ -11,11 +12,13 @@
 #include <utility>
 
 #include "leap_teleop_core/delta_builder.hpp"
+#include "leap_teleop_core/gripper_mapper.hpp"
 #include "leap_teleop_core/supervisor_fsm.hpp"
 #include "leap_teleop_core/timing.hpp"
 #include "leap_teleop_msgs/msg/deadman_state.hpp"
 #include "leap_teleop_msgs/msg/hand_pose.hpp"
 #include "leap_teleop_msgs/msg/teleop_delta.hpp"
+#include "leap_teleop_msgs/msg/teleop_gripper.hpp"
 #include "leap_teleop_msgs/msg/teleop_state.hpp"
 
 namespace leap_teleop {
@@ -45,6 +48,16 @@ std::string state_token(State state) {
   return "";
 }
 
+GripperMapperConfig gripper_config(const leap_teleop_supervisor::Params& params) {
+  GripperMapperConfig config;
+  config.pinch_closed_mm = params.pinch_closed_mm;
+  config.pinch_open_mm = params.pinch_open_mm;
+  config.filter_min_cutoff_hz = params.gripper_filter_min_cutoff;
+  config.filter_beta = params.gripper_filter_beta;
+  config.deadband = params.gripper_deadband;
+  return config;
+}
+
 }  // namespace
 
 class SupervisorNode : public rclcpp::Node {
@@ -60,6 +73,10 @@ class SupervisorNode : public rclcpp::Node {
     current_params_ = params;
     translation_scale_ = params.translation_scale;
     rotation_scale_ = params.rotation_scale;
+    if (!valid_pinch_range(params.pinch_closed_mm, params.pinch_open_mm)) {
+      throw std::runtime_error("pinch_closed_mm must be below pinch_open_mm");
+    }
+    gripper_mapper_ = std::make_unique<GripperMapper>(gripper_config(params));
     param_listener_->setUserCallback(
         [this](const leap_teleop_supervisor::Params& updated) { apply_tuning(updated); });
 
@@ -79,6 +96,8 @@ class SupervisorNode : public rclcpp::Node {
 
     target_publisher_ = create_publisher<leap_teleop_msgs::msg::TeleopDelta>(
         "pose_delta", rclcpp::QoS(rclcpp::KeepLast(1)));
+    gripper_publisher_ = create_publisher<leap_teleop_msgs::msg::TeleopGripper>(
+        "gripper", rclcpp::QoS(rclcpp::KeepLast(1)));
     state_publisher_ = create_publisher<leap_teleop_msgs::msg::TeleopState>(
         "state", rclcpp::QoS(rclcpp::KeepLast(1)));
 
@@ -97,6 +116,14 @@ class SupervisorNode : public rclcpp::Node {
     };
     log_change("translation_scale", current_params_.translation_scale, params.translation_scale);
     log_change("rotation_scale", current_params_.rotation_scale, params.rotation_scale);
+    if (valid_pinch_range(params.pinch_closed_mm, params.pinch_open_mm)) {
+      const std::lock_guard<std::mutex> lock(gripper_mutex_);
+      gripper_mapper_->set_config(gripper_config(params));
+    } else {
+      RCLCPP_WARN(get_logger(),
+                  "ignoring pinch_closed_mm %g and pinch_open_mm %g: closed must be below open",
+                  params.pinch_closed_mm, params.pinch_open_mm);
+    }
     current_params_ = params;
     translation_scale_ = params.translation_scale;
     rotation_scale_ = params.rotation_scale;
@@ -155,6 +182,9 @@ class SupervisorNode : public rclcpp::Node {
 
     if (result.latch && latest_hand_) {
       delta_builder_->latch(latest_hand_->pose);
+      const std::lock_guard<std::mutex> lock(gripper_mutex_);
+      gripper_mapper_->begin_engagement();
+      last_gripper_stamp_ = -1.0;
     }
 
     leap_teleop_msgs::msg::TeleopDelta target;
@@ -179,7 +209,30 @@ class SupervisorNode : public rclcpp::Node {
     state.engaged = engaged;
 
     target_publisher_->publish(target);
+    if (engaged && usable && latest_hand_) {
+      publish_gripper(*latest_hand_);
+    }
     state_publisher_->publish(state);
+  }
+
+  // Feeds each hand sample once, so heartbeat ticks do not repeat it.
+  void publish_gripper(const leap_teleop_msgs::msg::HandPose& hand) {
+    const double stamp = stamp_seconds(hand.header.stamp);
+    if (stamp == last_gripper_stamp_ || !std::isfinite(hand.pinch_distance)) {
+      return;
+    }
+    last_gripper_stamp_ = stamp;
+    std::optional<float> closure;
+    {
+      const std::lock_guard<std::mutex> lock(gripper_mutex_);
+      closure = gripper_mapper_->update(static_cast<double>(hand.pinch_distance), stamp);
+    }
+    if (closure) {
+      leap_teleop_msgs::msg::TeleopGripper message;
+      message.header.stamp = hand.header.stamp;
+      message.closure = *closure;
+      gripper_publisher_->publish(message);
+    }
   }
 
   std::shared_ptr<leap_teleop_supervisor::ParamListener> param_listener_;
@@ -200,10 +253,14 @@ class SupervisorNode : public rclcpp::Node {
   std::optional<leap_teleop_msgs::msg::DeadmanState> latest_deadman_;
   std::unique_ptr<DeltaBuilder> delta_builder_;
   std::unique_ptr<SupervisorFsm> fsm_;
+  std::mutex gripper_mutex_;
+  std::unique_ptr<GripperMapper> gripper_mapper_;
+  double last_gripper_stamp_ = -1.0;
 
   rclcpp::Subscription<leap_teleop_msgs::msg::HandPose>::SharedPtr hand_subscription_;
   rclcpp::Subscription<leap_teleop_msgs::msg::DeadmanState>::SharedPtr deadman_subscription_;
   rclcpp::Publisher<leap_teleop_msgs::msg::TeleopDelta>::SharedPtr target_publisher_;
+  rclcpp::Publisher<leap_teleop_msgs::msg::TeleopGripper>::SharedPtr gripper_publisher_;
   rclcpp::Publisher<leap_teleop_msgs::msg::TeleopState>::SharedPtr state_publisher_;
   rclcpp::TimerBase::SharedPtr heartbeat_;
 };

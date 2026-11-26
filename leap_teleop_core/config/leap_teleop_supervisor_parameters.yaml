@@ -60,3 +60,40 @@ leap_teleop_supervisor:
     validation:
       gt<>: [0.0]
       lt_eq<>: [10.0]
+  pinch_closed_mm:
+    type: double
+    default_value: 20.0
+    description: "Pinch distance, index fingertip to thumb, at which the gripper target is fully closed, in mm. Must be below pinch_open_mm."
+    read_only: false
+    validation:
+      gt<>: [0.0]
+  pinch_open_mm:
+    type: double
+    default_value: 70.0
+    description: "Pinch distance, index fingertip to thumb, at which the gripper target is fully open, in mm. Must be above pinch_closed_mm."
+    read_only: false
+    validation:
+      gt<>: [0.0]
+  gripper_filter_min_cutoff:
+    type: double
+    default_value: 1.0
+    description: "One-Euro filter cutoff at rest for the gripper closure, in Hz. Lower is smoother but laggier."
+    read_only: false
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [100.0]
+  gripper_filter_beta:
+    type: double
+    default_value: 1.0
+    description: "One-Euro filter speed coefficient for the gripper closure. Higher follows fast pinching better."
+    read_only: false
+    validation:
+      gt_eq<>: [0.0]
+  gripper_deadband:
+    type: double
+    default_value: 0.02
+    description: "Closure change below which no new gripper target is published, from 0 to 1. The fully open and closed ends are always published."
+    read_only: false
+    validation:
+      gt_eq<>: [0.0]
+      lt<>: [1.0]

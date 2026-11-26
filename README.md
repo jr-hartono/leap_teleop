@@ -25,6 +25,7 @@ Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo
 | `/leap_teleop/hand_pose/left`, `/leap_teleop/hand_pose/right` | `HandPose` | tracker | Filtered palm pose of that hand, in the operator frame, and the raw pinch distance in mm |
 | `/leap_teleop/deadman` | `DeadmanState` | deadman | Whether the deadman key is held |
 | `/leap_teleop/pose_delta` | `TeleopDelta` | supervisor | Pose change since engagement; the bridge's input |
+| `/leap_teleop/gripper` | `TeleopGripper` | supervisor | Gripper closure from 0 (open) to 1 (closed), from the pinch; published only while engaged |
 | `/leap_teleop/state` | `TeleopState` | supervisor | `idle`, `engaged` or `hold`, with the reason |
 | `/leap_teleop/command` | `geometry_msgs/TwistStamped` | bridge | Twist the bridge computed, also in dry run |
 | `/leap_teleop/markers` | `visualization_msgs/MarkerArray` | viz | RViz markers of the command and the hands |
@@ -166,6 +167,8 @@ Tune in dry run first and change one parameter at a time. All of these can be ch
 | Lag on fast motion only | `filter_beta` | Increase |
 | Drift while the hand is still | `deadband_translation`, `deadband_rotation` | Increase |
 | Chatter at the edge of the deadband | `deadband_hysteresis` | Increase |
+| Gripper does not fully close or open | `pinch_closed_mm`, `pinch_open_mm` | Adjust to your hand |
+| Gripper target jitters or lags | `gripper_filter_min_cutoff`, `gripper_filter_beta`, `gripper_deadband` | Adjust |
 | Arm travels too little or too much | `translation_scale`, `rotation_scale` | Adjust |
 | Sluggish or twitchy response | `kp_linear`, `kp_angular` | Increase or decrease |
 | Motion too fast | `max_linear_velocity`, `max_angular_velocity` | Decrease |

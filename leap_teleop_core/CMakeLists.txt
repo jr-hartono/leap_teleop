@@ -29,6 +29,7 @@ ament_auto_add_library(leap_hand_mapping SHARED
   src/filters.cpp
   src/hand_mapper.cpp
   src/delta_builder.cpp
+  src/gripper_mapper.cpp
   src/supervisor_fsm.cpp
 )
 target_link_libraries(leap_hand_mapping Eigen3::Eigen)
@@ -66,6 +67,9 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_delta_builder test/test_delta_builder.cpp)
   target_link_libraries(test_delta_builder leap_hand_mapping)
+
+  ament_add_gtest(test_gripper_mapper test/test_gripper_mapper.cpp)
+  target_link_libraries(test_gripper_mapper leap_hand_mapping)
 
   ament_add_gtest(test_supervisor_fsm test/test_supervisor_fsm.cpp)
   target_link_libraries(test_supervisor_fsm leap_hand_mapping)

@@ -15,6 +15,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/HandPose.msg"
   "msg/TeleopState.msg"
   "msg/TeleopDelta.msg"
+  "msg/TeleopGripper.msg"
   DEPENDENCIES builtin_interfaces geometry_msgs std_msgs
 )
 
