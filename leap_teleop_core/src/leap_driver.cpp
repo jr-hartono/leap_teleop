@@ -6,7 +6,7 @@
 #include <cstring>
 #include <leap_teleop_core/leap_driver_parameters.hpp>
 #include <leap_teleop_msgs/msg/hand.hpp>
-#include <leap_teleop_msgs/msg/hand_array.hpp>
+#include <leap_teleop_msgs/msg/tracking_frame.hpp>
 #include <memory>
 #include <mutex>
 #include <rclcpp/rclcpp.hpp>
@@ -52,7 +52,7 @@ LeapConnection::~LeapConnection() {
 namespace {
 
 using leap_teleop_msgs::msg::Hand;
-using leap_teleop_msgs::msg::HandArray;
+using leap_teleop_msgs::msg::TrackingFrame;
 
 constexpr std::uint32_t kPollTimeoutMs = 10;
 constexpr auto kIdlePeriod = std::chrono::milliseconds(100);
@@ -90,15 +90,15 @@ const char* tracking_mode_name(eLeapTrackingMode mode) {
   }
 }
 
-// The mode value for HandArray, unknown for a mode other than desktop or head-mounted.
+// The mode value for TrackingFrame, unknown for a mode other than desktop or head-mounted.
 std::string reported_mode_name(eLeapTrackingMode mode) {
   switch (mode) {
     case eLeapTrackingMode_Desktop:
-      return HandArray::DESKTOP;
+      return TrackingFrame::DESKTOP;
     case eLeapTrackingMode_HMD:
-      return HandArray::HEAD_MOUNTED;
+      return TrackingFrame::HEAD_MOUNTED;
     default:
-      return HandArray::UNKNOWN;
+      return TrackingFrame::UNKNOWN;
   }
 }
 
@@ -121,7 +121,7 @@ class LeapDriverNode : public rclcpp::Node {
   std::string reported_mode_name_now() const;
   std::string describe_device(const LEAP_DEVICE_REF& device) const;
 
-  rclcpp::Publisher<HandArray>::SharedPtr hands_pub_;
+  rclcpp::Publisher<TrackingFrame>::SharedPtr hands_pub_;
   rclcpp::TimerBase::SharedPtr idle_timer_;
   std::shared_ptr<leap_driver::ParamListener> param_listener_;
   std::unique_ptr<LeapConnection> connection_;
@@ -156,7 +156,7 @@ LeapDriverNode::LeapDriverNode(const rclcpp::NodeOptions& options)
   requested_mode_ = (tracking_mode == TrackingMode::kHeadMounted) ? eLeapTrackingMode_HMD
                                                                   : eLeapTrackingMode_Desktop;
 
-  hands_pub_ = create_publisher<HandArray>(
+  hands_pub_ = create_publisher<TrackingFrame>(
       "hands", rclcpp::QoS(rclcpp::KeepLast(5)).best_effort().durability_volatile());
   idle_timer_ = create_wall_timer(kIdlePeriod, [this]() { publish_idle(); });
 
@@ -232,14 +232,14 @@ void LeapDriverNode::on_device_attached(const LEAP_DEVICE_REF& device) {
 }
 
 void LeapDriverNode::on_tracking_mode(eLeapTrackingMode current) {
-  if (reported_mode_name(current) == HandArray::UNKNOWN) {
+  if (reported_mode_name(current) == TrackingFrame::UNKNOWN) {
     reported_mode_.store(-1);
     if (!unsupported_mode_warned_) {
       unsupported_mode_warned_ = true;
       RCLCPP_WARN(
           this->get_logger(),
           "ultraleap-hand-tracking-service is in tracking_mode %s, which is neither desktop nor "
-          "head_mounted; hand arrays carry tracking_mode unknown",
+          "head_mounted; tracking frames carry tracking_mode unknown",
           tracking_mode_name(current));
     }
   } else {
@@ -271,7 +271,7 @@ void LeapDriverNode::on_tracking_mode(eLeapTrackingMode current) {
 
 std::string LeapDriverNode::reported_mode_name_now() const {
   const int mode = reported_mode_.load();
-  return mode < 0 ? std::string(HandArray::UNKNOWN)
+  return mode < 0 ? std::string(TrackingFrame::UNKNOWN)
                   : reported_mode_name(static_cast<eLeapTrackingMode>(mode));
 }
 
@@ -346,17 +346,17 @@ void LeapDriverNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
 
   device_available_.store(true);
   const auto stamp = now();
-  HandArray array;
-  array.header.stamp = stamp;
-  array.header.frame_id = kDeviceFrame;
-  array.tracking_frame_id = static_cast<std::uint64_t>(frame->tracking_frame_id);
-  array.device_timestamp_us = static_cast<std::uint64_t>(frame->info.timestamp);
-  array.framerate = frame->framerate;
-  array.is_tracking = true;
-  array.tracking_mode = reported_mode_name_now();
+  TrackingFrame tracking_frame;
+  tracking_frame.header.stamp = stamp;
+  tracking_frame.header.frame_id = kDeviceFrame;
+  tracking_frame.tracking_frame_id = static_cast<std::uint64_t>(frame->tracking_frame_id);
+  tracking_frame.device_timestamp_us = static_cast<std::uint64_t>(frame->info.timestamp);
+  tracking_frame.framerate = frame->framerate;
+  tracking_frame.is_tracking = true;
+  tracking_frame.tracking_mode = reported_mode_name_now();
 
   if (frame->pHands != nullptr) {
-    array.hands.reserve(frame->nHands);
+    tracking_frame.hands.reserve(frame->nHands);
     for (std::uint32_t index = 0; index < frame->nHands; ++index) {
       const LEAP_HAND& hand = frame->pHands[index];
       Hand reported;
@@ -375,13 +375,13 @@ void LeapDriverNode::publish_tracking(const LEAP_TRACKING_EVENT* frame) {
       reported.pinch_distance = non_negative_distance(hand.pinch_distance);
       reported.grab_strength = clamp_unit_strength(hand.grab_strength);
 
-      array.hands.push_back(reported);
+      tracking_frame.hands.push_back(reported);
     }
   }
 
   {
     std::lock_guard<std::mutex> lock(state_mutex_);
-    hands_pub_->publish(array);
+    hands_pub_->publish(tracking_frame);
     last_frame_time_ = std::chrono::steady_clock::now();
     missing_device_warned_ = false;
   }
@@ -399,13 +399,13 @@ void LeapDriverNode::publish_idle() {
     return;
   }
 
-  HandArray array;
-  array.header.stamp = this->now();
-  array.header.frame_id = kDeviceFrame;
-  array.framerate = 0.0F;
-  array.is_tracking = false;
-  array.tracking_mode = reported_mode_name_now();
-  hands_pub_->publish(array);
+  TrackingFrame tracking_frame;
+  tracking_frame.header.stamp = this->now();
+  tracking_frame.header.frame_id = kDeviceFrame;
+  tracking_frame.framerate = 0.0F;
+  tracking_frame.is_tracking = false;
+  tracking_frame.tracking_mode = reported_mode_name_now();
+  hands_pub_->publish(tracking_frame);
 }
 
 }  // namespace

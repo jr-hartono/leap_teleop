@@ -11,7 +11,7 @@ ament_auto_find_build_dependencies()
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DeadmanState.msg"
   "msg/Hand.msg"
-  "msg/HandArray.msg"
+  "msg/TrackingFrame.msg"
   "msg/TeleopHand.msg"
   "msg/TeleopState.msg"
   "msg/TeleopDelta.msg"

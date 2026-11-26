@@ -21,7 +21,7 @@ Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo
 
 | Topic | Type | From | Content |
 |---|---|---|---|
-| `/leap_teleop/hands` | `HandArray` | driver | All tracked hands as `ultraleap-hand-tracking-service` reports them, in the device frame, with pinch and grab values, and the tracking mode; the mapper's input |
+| `/leap_teleop/hands` | `TrackingFrame` | driver | All tracked hands as `ultraleap-hand-tracking-service` reports them, in the device frame, with pinch and grab values, and the tracking mode; the mapper's input |
 | `/leap_teleop/teleop_hand/<side>` | `TeleopHand` | mapper | Filtered palm pose in the operator frame and filtered closure, while the hand is visible |
 | `/leap_teleop/deadman` | `DeadmanState` | deadman | Whether the deadman key is held |
 | `/leap_teleop/pose_delta/<side>` | `TeleopDelta` | mapper | Pose change since engagement; the bridge's input |
@@ -118,7 +118,7 @@ command.
    - `tracking_mode`: the mode the driver requests from `ultraleap-hand-tracking-service`,
      `desktop` (default) with the cameras facing up and LED facing the operator, or
      `head_mounted` with cameras facing forward and the LED facing down. Only the driver reads
-     it; the mapper takes the mode the service reports from the hand array.
+     it; the mapper takes the mode the service reports from the tracking frame.
 
 4. Select Servo's twist input. Servo ignores `command_in_type` in YAML, so do this after every
    Servo start. Also make sure the controller behind Servo's `command_out_topic` is active.

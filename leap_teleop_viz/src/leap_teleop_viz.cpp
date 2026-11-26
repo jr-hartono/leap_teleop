@@ -22,9 +22,9 @@
 #include "leap_teleop_core/delta_builder.hpp"
 #include "leap_teleop_core/frames.hpp"
 #include "leap_teleop_msgs/msg/hand.hpp"
-#include "leap_teleop_msgs/msg/hand_array.hpp"
 #include "leap_teleop_msgs/msg/teleop_delta.hpp"
 #include "leap_teleop_msgs/msg/teleop_hand.hpp"
+#include "leap_teleop_msgs/msg/tracking_frame.hpp"
 #include "leap_teleop_viz/markers.hpp"
 
 namespace leap_teleop {
@@ -106,10 +106,10 @@ class VizNode : public rclcpp::Node {
         });
     marker_publisher_ = create_publisher<MarkerArray>("markers", rclcpp::QoS(rclcpp::KeepLast(10)));
 
-    hands_subscription_ = create_subscription<leap_teleop_msgs::msg::HandArray>(
+    hands_subscription_ = create_subscription<leap_teleop_msgs::msg::TrackingFrame>(
         // Best effort, matching the driver; a reliable subscription would receive nothing.
         "hands", rclcpp::QoS(rclcpp::KeepLast(1)).best_effort(),
-        [this](const leap_teleop_msgs::msg::HandArray::SharedPtr message) {
+        [this](const leap_teleop_msgs::msg::TrackingFrame::SharedPtr message) {
           hands_ = *message;
           hands_time_ = now().seconds();
         });
@@ -415,7 +415,7 @@ class VizNode : public rclcpp::Node {
   double command_time_ = 0.0;
 
   inline static const std::array<std::string, 2> kSides = {Hand::LEFT, Hand::RIGHT};
-  std::optional<leap_teleop_msgs::msg::HandArray> hands_;
+  std::optional<leap_teleop_msgs::msg::TrackingFrame> hands_;
   double hands_time_ = 0.0;
   std::array<std::optional<leap_teleop_msgs::msg::TeleopHand>, 2> hand_poses_;
   std::array<double, 2> hand_pose_times_{};
@@ -431,7 +431,7 @@ class VizNode : public rclcpp::Node {
   rclcpp::Subscription<leap_teleop_msgs::msg::TeleopDelta>::SharedPtr delta_subscription_;
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr command_subscription_;
   rclcpp::Subscription<rcl_interfaces::msg::ParameterEvent>::SharedPtr mapper_events_;
-  rclcpp::Subscription<leap_teleop_msgs::msg::HandArray>::SharedPtr hands_subscription_;
+  rclcpp::Subscription<leap_teleop_msgs::msg::TrackingFrame>::SharedPtr hands_subscription_;
   std::array<rclcpp::Subscription<leap_teleop_msgs::msg::TeleopHand>::SharedPtr, 2>
       hand_pose_subscriptions_;
   rclcpp::Publisher<MarkerArray>::SharedPtr marker_publisher_;

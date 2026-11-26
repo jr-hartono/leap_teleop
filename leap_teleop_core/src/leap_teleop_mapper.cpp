@@ -22,11 +22,11 @@
 #include "leap_teleop_core/timing.hpp"
 #include "leap_teleop_msgs/msg/deadman_state.hpp"
 #include "leap_teleop_msgs/msg/hand.hpp"
-#include "leap_teleop_msgs/msg/hand_array.hpp"
 #include "leap_teleop_msgs/msg/teleop_delta.hpp"
 #include "leap_teleop_msgs/msg/teleop_gripper.hpp"
 #include "leap_teleop_msgs/msg/teleop_hand.hpp"
 #include "leap_teleop_msgs/msg/teleop_state.hpp"
+#include "leap_teleop_msgs/msg/tracking_frame.hpp"
 
 namespace leap_teleop {
 
@@ -101,7 +101,7 @@ class MapperNode : public rclcpp::Node {
     closure_filter_ = std::make_unique<ClosureFilter>(gripper_config(params));
     closure_gate_ = std::make_unique<ClosureGate>(gripper_config(params));
 
-    // Broadcasts the device's mounting once the first hand array names the tracking mode.
+    // Broadcasts the device's mounting once the first tracking frame names the tracking mode.
     static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
     param_listener_->setUserCallback(
         [this](const leap_teleop_mapper::Params& updated) { apply_tuning(updated); });
@@ -109,9 +109,11 @@ class MapperNode : public rclcpp::Node {
     delta_builder_ = std::make_unique<DeltaBuilder>();
     fsm_ = std::make_unique<MapperFsm>(params.hold_timeout);
 
-    hands_subscription_ = create_subscription<leap_teleop_msgs::msg::HandArray>(
+    hands_subscription_ = create_subscription<leap_teleop_msgs::msg::TrackingFrame>(
         "hands", rclcpp::QoS(rclcpp::KeepLast(5)).best_effort().durability_volatile(),
-        [this](const leap_teleop_msgs::msg::HandArray::SharedPtr message) { on_hands(*message); });
+        [this](const leap_teleop_msgs::msg::TrackingFrame::SharedPtr message) {
+          on_hands(*message);
+        });
     deadman_subscription_ = create_subscription<leap_teleop_msgs::msg::DeadmanState>(
         "deadman", rclcpp::QoS(rclcpp::KeepLast(1)),
         [this](const leap_teleop_msgs::msg::DeadmanState::SharedPtr message) {
@@ -167,12 +169,12 @@ class MapperNode : public rclcpp::Node {
     rotation_scale_ = params.rotation_scale;
   }
 
-  // Takes the tracking mode from the hand array. Returns false when the hand must be dropped: the
-  // mode is unknown or has just changed, so poses from before and after do not connect. The drop
-  // goes through the same path as a lost hand, so the FSM holds and needs a new key press.
+  // Takes the tracking mode from the tracking frame. Returns false when the hand must be dropped:
+  // the mode is unknown or has just changed, so poses from before and after do not connect. The
+  // drop goes through the same path as a lost hand, so the FSM holds and needs a new key press.
   bool update_tracking_mode(const std::string& name) {
     std::optional<TrackingMode> mode;
-    if (name != leap_teleop_msgs::msg::HandArray::UNKNOWN) {
+    if (name != leap_teleop_msgs::msg::TrackingFrame::UNKNOWN) {
       try {
         mode = tracking_mode_from_string(name);
       } catch (const std::invalid_argument&) {
@@ -226,13 +228,13 @@ class MapperNode : public rclcpp::Node {
 
   // Maps the configured side's hand to the operator frame, filters it and publishes it. A hand
   // that is absent or not tracked is lost: its filters restart with the next sighting.
-  void on_hands(const leap_teleop_msgs::msg::HandArray& array) {
-    if (!update_tracking_mode(array.tracking_mode)) {
+  void on_hands(const leap_teleop_msgs::msg::TrackingFrame& tracking_frame) {
+    if (!update_tracking_mode(tracking_frame.tracking_mode)) {
       return;
     }
     const leap_teleop_msgs::msg::Hand* hand = nullptr;
-    if (array.is_tracking) {
-      for (const auto& candidate : array.hands) {
+    if (tracking_frame.is_tracking) {
+      for (const auto& candidate : tracking_frame.hands) {
         if (candidate.side == side_) {
           hand = &candidate;
           break;
@@ -246,14 +248,14 @@ class MapperNode : public rclcpp::Node {
       return;
     }
 
-    const double time = stamp_seconds(array.header.stamp);
+    const double time = stamp_seconds(tracking_frame.header.stamp);
     HandPoseInput input;
     input.position_m = point_from_msg(hand->pose.position);
     input.orientation = normalized(quaternion_from_msg(hand->pose.orientation));
     input.time_sec = time;
 
     leap_teleop_msgs::msg::TeleopHand processed;
-    processed.header.stamp = array.header.stamp;
+    processed.header.stamp = tracking_frame.header.stamp;
     processed.header.frame_id = kOperatorFrame;
     ClosureSample closure;
     {
@@ -392,7 +394,7 @@ class MapperNode : public rclcpp::Node {
   std::optional<leap_teleop_msgs::msg::DeadmanState> latest_deadman_;
   std::unique_ptr<DeltaBuilder> delta_builder_;
   std::unique_ptr<MapperFsm> fsm_;
-  // The mode the last hand array reported; unset until one does.
+  // The mode the last tracking frame reported; unset until one does.
   std::optional<TrackingMode> tracking_mode_;
   std::mutex processing_mutex_;
   std::unique_ptr<HandMapper> hand_mapper_;
@@ -401,7 +403,7 @@ class MapperNode : public rclcpp::Node {
   ClosureSample latest_closure_;
   double last_gripper_stamp_ = -1.0;
 
-  rclcpp::Subscription<leap_teleop_msgs::msg::HandArray>::SharedPtr hands_subscription_;
+  rclcpp::Subscription<leap_teleop_msgs::msg::TrackingFrame>::SharedPtr hands_subscription_;
   rclcpp::Subscription<leap_teleop_msgs::msg::DeadmanState>::SharedPtr deadman_subscription_;
   rclcpp::Publisher<leap_teleop_msgs::msg::TeleopDelta>::SharedPtr target_publisher_;
   rclcpp::Publisher<leap_teleop_msgs::msg::TeleopHand>::SharedPtr hand_publisher_;
