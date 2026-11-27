@@ -81,13 +81,18 @@ with one joint position on `command_topic` (default `/gripper_controller/command
 
 ## Try the demo
 
-The demo drives a simulated UR5e in RViz, so no robot is needed. It needs three more packages:
+The demo drives a simulated UR5e in RViz, so no robot is needed. It needs these packages:
 
 ```bash
-sudo apt install ros-jazzy-moveit-servo ros-jazzy-ur-robot-driver ros-jazzy-ur-moveit-config
+sudo apt install ros-jazzy-moveit-servo ros-jazzy-ur-description ros-jazzy-ur-moveit-config \
+  ros-jazzy-controller-manager ros-jazzy-joint-state-broadcaster ros-jazzy-joint-trajectory-controller
 export ROS_DOMAIN_ID=42   # keep the demo away from any real robot on your network
-ros2 launch leap_teleop_bringup demo_ur_mock.launch.py
+ros2 launch leap_teleop_bringup demo_ur5e_2f85.launch.py
 ```
+
+The demo's robot, controllers and Servo setup are in
+[config/demo_ur5e_2f85](leap_teleop_bringup/config/demo_ur5e_2f85). The arm runs on
+ros2_control mock hardware, and Servo drives it through a `joint_trajectory_controller`.
 
 Hold **left Alt**, move your right hand above the controller, and the arm follows. Release it to
 stop. To re-centre, release, move your hand back, and press again.

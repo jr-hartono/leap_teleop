@@ -1,11 +1,9 @@
-"""Demo: drive a simulated UR5e (mock hardware, RViz) with the Leap controller.
+"""Demo: drive a simulated UR5e (mock hardware) with the Leap controller.
 
-Needs: sudo apt install ros-jazzy-moveit-servo ros-jazzy-ur-robot-driver ros-jazzy-ur-moveit-config
+Needs: the packages in DEMO_PACKAGES; the README lists the apt command.
 """
 
 import os
-import tempfile
-from pathlib import Path
 
 import yaml
 from ament_index_python.packages import (
@@ -23,11 +21,18 @@ from launch.event_handlers import OnProcessExit
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
-DEMO_PACKAGES = ["moveit_servo", "ur_robot_driver", "ur_moveit_config"]
-UR_TYPE = "ur5e"
+DEMO_PACKAGES = [
+    "moveit_servo",
+    "ur_description",
+    "ur_moveit_config",
+    "controller_manager",
+    "joint_state_broadcaster",
+    "joint_trajectory_controller",
+    "robot_state_publisher",
+    "xacro",
+]
 
-# Servo and MoveIt planning share UR's default controller, so no controller switch is needed.
-CONTROLLER = "scaled_joint_trajectory_controller"
+CONTROLLER = "joint_trajectory_controller"
 JOINTS = [
     "shoulder_pan_joint",
     "shoulder_lift_joint",
@@ -38,6 +43,20 @@ JOINTS = [
 ]
 # Elbow bent, tool pointing down: away from the singularities of UR's default pose.
 START_POSE = [0.0, -1.57, 1.57, -1.57, -1.57, 0.0]
+
+
+def config_path(name):
+    return os.path.join(
+        get_package_share_directory("leap_teleop_bringup"),
+        "config",
+        "demo_ur5e_2f85",
+        name,
+    )
+
+
+def load_yaml(path):
+    with open(path) as file:
+        return yaml.safe_load(file)
 
 
 def check_demo_packages(context):
@@ -56,71 +75,57 @@ def check_demo_packages(context):
     return []
 
 
-def servo_node(context):
-    from moveit_configs_utils import MoveItConfigsBuilder
+def robot(context):
+    import xacro
 
-    moveit_config = (
-        MoveItConfigsBuilder(robot_name="ur", package_name="ur_moveit_config")
-        .robot_description_semantic(Path("srdf") / "ur.srdf.xacro", {"name": UR_TYPE})
-        .to_moveit_configs()
+    robot_description = xacro.process_file(config_path("robot.urdf.xacro")).toxml()
+    robot_description_semantic = xacro.process_file(
+        config_path("robot.srdf.xacro")
+    ).toxml()
+    # Arm kinematics and acceleration limits come with the UR MoveIt config.
+    ur_moveit_config = os.path.join(
+        get_package_share_directory("ur_moveit_config"), "config"
     )
-    servo_yaml = os.path.join(
-        get_package_share_directory("ur_moveit_config"), "config", "ur_servo.yaml"
-    )
-    with open(servo_yaml) as file:
-        servo_params = yaml.safe_load(file)
-    servo_params.update(
-        {
-            "command_out_type": "trajectory_msgs/JointTrajectory",
-            "command_out_topic": f"/{CONTROLLER}/joint_trajectory",
-            "publish_joint_velocities": True,
-        }
-    )
+    servo_parameters = {
+        "robot_description": robot_description,
+        "robot_description_semantic": robot_description_semantic,
+        "robot_description_kinematics": load_yaml(
+            os.path.join(ur_moveit_config, "kinematics.yaml")
+        ),
+        "robot_description_planning": load_yaml(
+            os.path.join(ur_moveit_config, "joint_limits.yaml")
+        ),
+        "moveit_servo": load_yaml(config_path("servo.yaml")),
+    }
     return [
+        Node(
+            package="robot_state_publisher",
+            executable="robot_state_publisher",
+            parameters=[{"robot_description": robot_description}],
+        ),
+        Node(
+            package="controller_manager",
+            executable="ros2_control_node",
+            parameters=[config_path("controllers.yaml")],
+            remappings=[("~/robot_description", "/robot_description")],
+            output="screen",
+        ),
+        Node(
+            package="controller_manager",
+            executable="spawner",
+            arguments=[
+                "joint_state_broadcaster",
+                CONTROLLER,
+                "--controller-manager",
+                "/controller_manager",
+            ],
+        ),
         Node(
             package="moveit_servo",
             executable="servo_node",
-            parameters=[moveit_config.to_dict(), {"moveit_servo": servo_params}],
+            parameters=[servo_parameters],
             output="screen",
-        )
-    ]
-
-
-def robot(context):
-    # Servo sends trajectories that end while the arm is still moving. UR's controller config
-    # rejects those, so the demo uses a copy that allows them.
-    controllers = os.path.join(
-        get_package_share_directory("ur_robot_driver"), "config", "ur_controllers.yaml"
-    )
-    # Edited as text, not with yaml: UR's launch file fills in placeholders such as
-    # tf_prefix: "$(var tf_prefix)" in the text. yaml would drop the quotes, and an empty
-    # tf_prefix would then leave "tf_prefix:" without a value, which ROS cannot parse.
-    with open(controllers) as file:
-        text = file.read()
-    section = f"{CONTROLLER}:\n  ros__parameters:\n"
-    if section not in text:
-        raise RuntimeError(f"{CONTROLLER} not found in {controllers}")
-    text = text.replace(
-        section, section + "    allow_nonzero_velocity_at_trajectory_end: true\n", 1
-    )
-    with tempfile.NamedTemporaryFile(
-        "w", prefix="demo_ur_controllers_", suffix=".yaml", delete=False
-    ) as patched:
-        patched.write(text)
-    return [
-        include(
-            "ur_robot_driver",
-            "ur_control.launch.py",
-            {
-                "ur_type": UR_TYPE,
-                "robot_ip": "0.0.0.0",
-                "use_mock_hardware": "true",
-                "initial_joint_controller": CONTROLLER,
-                "controllers_file": patched.name,
-                "launch_rviz": "false",
-                "launch_dashboard_client": "false",
-            },
-        )
+        ),
     ]
 
 
@@ -169,16 +174,6 @@ def generate_launch_description():
         [
             OpaqueFunction(function=check_demo_packages),
             OpaqueFunction(function=robot),
-            include(
-                "ur_moveit_config",
-                "ur_moveit.launch.py",
-                {
-                    "ur_type": UR_TYPE,
-                    "launch_servo": "false",
-                    "launch_rviz": "false",
-                },
-            ),
-            OpaqueFunction(function=servo_node),
             switch_to_twist,
             RegisterEventHandler(
                 OnProcessExit(

@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<!-- Semantic description of the demo robot. The name must match robot.urdf.xacro. -->
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="ur5e_2f85">
+  <!-- Group ur_manipulator, base_link to tool0, and the arm's disabled collision pairs. -->
+  <xacro:include filename="$(find ur_moveit_config)/srdf/ur_macro.srdf.xacro"/>
+  <xacro:ur_srdf/>
+</robot>
