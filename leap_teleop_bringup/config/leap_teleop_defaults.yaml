@@ -90,6 +90,10 @@
     open_position: 0.0
     # Joint position at closure 1, fully closed. (dynamic)
     closed_position: 1.0
+    # Gripper velocity cap, in joint units per second. 0 means no limit. (dynamic)
+    max_velocity: 0.5
+    # Time between commands while moving toward the target, in seconds.
+    publish_period: 0.01
 
     # Log commands instead of publishing them. Overridden by the launch argument dry_run.
     dry_run: true

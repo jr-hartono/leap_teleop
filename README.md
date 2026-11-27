@@ -96,9 +96,8 @@ The demo's robot, controllers and Servo setup are in
 [config/demo_ur5e_2f85](leap_teleop_bringup/config/demo_ur5e_2f85). The arm runs on
 ros2_control mock hardware, and Servo drives it through a `joint_trajectory_controller`. The
 gripper's driving knuckle has its own mock hardware and a `forward_command_controller`, which
-`leap_gripper_bridge` commands. The controller manager enforces the URDF joint limits, so the
-gripper closes at the knuckle's 0.5 rad/s velocity limit, about 1.6 s for a full stroke, instead of
-jumping to the pinch. Rotations pivot about `gripper_tcp`, between the finger pads.
+`leap_gripper_bridge` commands. The bridge's `max_velocity` moves the gripper at the knuckle's
+0.5 rad/s velocity limit, about 1.6 s for a full stroke, instead of jumping to the pinch. Rotations pivot about `gripper_tcp`, between the finger pads.
 
 Hold **left Alt**, move your right hand above the controller, and the arm follows. Pinch your
 thumb and index finger to close the gripper. Release the key to stop; the gripper keeps its last
@@ -140,6 +139,8 @@ command.
    - `gripper`: `true` starts `leap_gripper_bridge`; default `false`. Set `command_topic` to
      your gripper's `forward_command_controller`, and `open_position` and `closed_position` to
      its joint positions at closure 0 and 1. The bridge maps the closure linearly between them.
+     `max_velocity` caps how fast the command moves toward the target, 0.5 joint units per
+     second by default. Set it to 0 if your gripper's controller already limits its speed.
      `dry_run` applies to it too.
 
 4. Select Servo's twist input. Servo ignores `command_in_type` in YAML, so do this after every

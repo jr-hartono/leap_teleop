@@ -54,6 +54,8 @@
     open_position: 0.0
     # The knuckle's upper limit in robotiq_description's URDF, in radians.
     closed_position: 0.8
+    max_velocity: 0.5
+    publish_period: 0.01
 
     dry_run: true
 

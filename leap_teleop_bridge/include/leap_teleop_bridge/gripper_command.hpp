@@ -11,4 +11,12 @@ inline double gripper_position(double closure, double open_position, double clos
   return open_position + clamped * (closed_position - open_position);
 }
 
+// Moves current toward target by at most max_step. A max_step of 0 or less jumps to target.
+inline double step_toward(double current, double target, double max_step) {
+  if (max_step <= 0.0) {
+    return target;
+  }
+  return current + std::clamp(target - current, -max_step, max_step);
+}
+
 }  // namespace leap_teleop

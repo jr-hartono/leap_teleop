@@ -27,5 +27,20 @@ TEST(GripperPosition, HandlesClosedBelowOpen) {
   EXPECT_DOUBLE_EQ(gripper_position(2.0, 0.08, 0.0), 0.0);
 }
 
+TEST(StepToward, LimitsTheStep) {
+  EXPECT_DOUBLE_EQ(step_toward(0.0, 1.0, 0.1), 0.1);
+  EXPECT_DOUBLE_EQ(step_toward(1.0, 0.0, 0.1), 0.9);
+}
+
+TEST(StepToward, ReachesANearTargetExactly) {
+  EXPECT_DOUBLE_EQ(step_toward(0.0, 0.05, 0.1), 0.05);
+  EXPECT_DOUBLE_EQ(step_toward(0.3, 0.3, 0.1), 0.3);
+}
+
+TEST(StepToward, ZeroOrNegativeStepJumps) {
+  EXPECT_DOUBLE_EQ(step_toward(0.0, 0.8, 0.0), 0.8);
+  EXPECT_DOUBLE_EQ(step_toward(0.8, 0.0, -1.0), 0.0);
+}
+
 }  // namespace
 }  // namespace leap_teleop

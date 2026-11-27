@@ -23,8 +23,23 @@ leap_gripper_bridge:
   closed_position:
     type: double
     default_value: 1.0
-    description: "Joint position at closure 1, fully closed.."
+    description: "Joint position at closure 1, fully closed."
     read_only: false
+  max_velocity:
+    type: double
+    default_value: 0.5
+    description: "Gripper velocity cap, in joint units per second. 0 means no limit."
+    read_only: false
+    validation:
+      gt_eq<>: [0.0]
+  publish_period:
+    type: double
+    default_value: 0.01
+    description: "Time between commands while moving toward the target, in seconds."
+    read_only: true
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [0.1]
   dry_run:
     type: bool
     default_value: true
