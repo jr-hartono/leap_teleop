@@ -30,9 +30,9 @@
     pinch_closed_mm: 20.0
     pinch_open_mm: 70.0
 
-    gripper_filter_min_cutoff: 1.0
+    gripper_filter_min_cutoff: 5.0
     gripper_filter_beta: 1.0
-    gripper_deadband: 0.02
+    gripper_deadband: 0.005
 
 /**/leap_moveit_servo_bridge:
   ros__parameters:

@@ -52,11 +52,11 @@
     pinch_open_mm: 70.0
 
     # One-Euro filter cutoff at rest for the gripper closure, in Hz. (dynamic)
-    gripper_filter_min_cutoff: 1.0
+    gripper_filter_min_cutoff: 5.0
     # One-Euro filter speed coefficient for the gripper closure. (dynamic)
     gripper_filter_beta: 1.0
     # Closure change below which no new gripper target is published, 0 to 1. (dynamic)
-    gripper_deadband: 0.02
+    gripper_deadband: 0.005
 
 /**/leap_moveit_servo_bridge:
   ros__parameters:
