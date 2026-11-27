@@ -246,6 +246,7 @@ container, run the driver and deadman on the host and the rest in the container.
   commanded closure before it follows, instead of jumping to the current closure.
 - Dual-arm control: the left and right hands each drive one arm.
 - Demo with the arms of a Unitree G1 humanoid.
+- Demo in MuJoCo with objects on a table to pick and place with the gripper.
 
 ## Develop
 
