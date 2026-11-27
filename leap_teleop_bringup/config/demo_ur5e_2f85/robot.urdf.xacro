@@ -1,8 +1,10 @@
 <?xml version="1.0"?>
-<!-- Demo robot: a UR5e on mock hardware. -->
+<!-- Demo robot: a UR5e with a Robotiq 2F-85 gripper, on mock hardware. -->
 <robot xmlns:xacro="http://wiki.ros.org/xacro" name="ur5e_2f85">
   <xacro:include filename="$(find ur_description)/urdf/ur_macro.xacro"/>
   <xacro:include filename="$(find ur_description)/urdf/ros2_control_mock_hardware.xacro"/>
+  <xacro:include filename="$(find robotiq_description)/urdf/ur_to_robotiq_adapter.urdf.xacro"/>
+  <xacro:include filename="$(find robotiq_description)/urdf/robotiq_2f_85_macro.urdf.xacro"/>
 
   <xacro:property name="ur_config" value="$(find ur_description)/config/ur5e"/>
 
@@ -23,4 +25,34 @@
     name="ur"
     tf_prefix=""
     initial_positions="${xacro.load_yaml('$(find ur_description)/config/initial_positions.yaml')}"/>
+
+  <!-- Gripper on the tool flange. -->
+  <xacro:ur_to_robotiq prefix="" connected_to="tool0"/>
+  <!-- Robotiq's own ros2_control block commands the mimic joints too, which Jazzy rejects. -->
+  <xacro:robotiq_gripper name="robotiq_gripper" prefix="" parent="gripper_mount_link"
+    include_ros2_control="false">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </xacro:robotiq_gripper>
+
+  <!-- TCP between the finger pads. Servo and the bridge pivot rotations about it. -->
+  <link name="gripper_tcp"/>
+  <joint name="gripper_tcp_joint" type="fixed">
+    <parent link="robotiq_85_base_link"/>
+    <child link="gripper_tcp"/>
+    <origin xyz="0 0 0.13" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Only the driving knuckle is commanded; robot_state_publisher moves the mimic joints. -->
+  <ros2_control name="robotiq_gripper" type="system">
+    <hardware>
+      <plugin>mock_components/GenericSystem</plugin>
+    </hardware>
+    <joint name="robotiq_85_left_knuckle_joint">
+      <command_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
 </robot>

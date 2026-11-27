@@ -32,16 +32,19 @@ jobs:
           python3 -m venv /tmp/gpl-validate
           /tmp/gpl-validate/bin/pip install \
             "git+https://github.com/ros-tooling/generate_parameter_library.git@3de05171627222370af8e760a3a6c3adc9dde54a#subdirectory=generate_parameter_library_py"
-          env -u PYTHONPATH -u AMENT_PREFIX_PATH \
-            /tmp/gpl-validate/bin/generate_parameter_library_validate \
-            --param-definition leap_teleop_core/config/leap_driver_parameters.yaml \
-            --param-definition leap_teleop_core/config/leap_teleop_deadman_parameters.yaml \
-            --param-definition leap_teleop_core/config/leap_teleop_mapper_parameters.yaml \
-            --param-definition leap_teleop_bridge/config/leap_moveit_servo_bridge_parameters.yaml \
-            --param-definition leap_teleop_bridge/config/leap_gripper_bridge_parameters.yaml \
-            --param-definition leap_teleop_viz/config/leap_teleop_viz_parameters.yaml \
-            --config leap_teleop_bringup/config/example_arm.yaml \
-            --strict
+          for config in leap_teleop_bringup/config/leap_teleop_defaults.yaml \
+            leap_teleop_bringup/config/demo_ur5e_2f85/leap_teleop.yaml; do
+            env -u PYTHONPATH -u AMENT_PREFIX_PATH \
+              /tmp/gpl-validate/bin/generate_parameter_library_validate \
+              --param-definition leap_teleop_core/config/leap_driver_parameters.yaml \
+              --param-definition leap_teleop_core/config/leap_teleop_deadman_parameters.yaml \
+              --param-definition leap_teleop_core/config/leap_teleop_mapper_parameters.yaml \
+              --param-definition leap_teleop_bridge/config/leap_moveit_servo_bridge_parameters.yaml \
+              --param-definition leap_teleop_bridge/config/leap_gripper_bridge_parameters.yaml \
+              --param-definition leap_teleop_viz/config/leap_teleop_viz_parameters.yaml \
+              --config "$config" \
+              --strict
+          done
 
       - name: Build
         run: |

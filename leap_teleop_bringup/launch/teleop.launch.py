@@ -114,7 +114,7 @@ def launch_setup(context, *args):
 
 def generate_launch_description():
     default_params = PathJoinSubstitution(
-        [FindPackageShare("leap_teleop_bringup"), "config", "example_arm.yaml"]
+        [FindPackageShare("leap_teleop_bringup"), "config", "leap_teleop_defaults.yaml"]
     )
     return LaunchDescription(
         [

@@ -1,4 +1,4 @@
-"""Demo: drive a simulated UR5e (mock hardware) with the Leap controller.
+"""Demo: drive a simulated UR5e with a Robotiq 2F-85 (mock hardware) with the Leap controller.
 
 Needs: the packages in DEMO_PACKAGES; the README lists the apt command.
 """
@@ -12,12 +12,14 @@ from ament_index_python.packages import (
 )
 from launch import LaunchDescription
 from launch.actions import (
+    DeclareLaunchArgument,
     ExecuteProcess,
     IncludeLaunchDescription,
     OpaqueFunction,
     RegisterEventHandler,
 )
 from launch.event_handlers import OnProcessExit
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -25,9 +27,11 @@ DEMO_PACKAGES = [
     "moveit_servo",
     "ur_description",
     "ur_moveit_config",
+    "robotiq_description",
     "controller_manager",
     "joint_state_broadcaster",
     "joint_trajectory_controller",
+    "forward_command_controller",
     "robot_state_publisher",
     "xacro",
 ]
@@ -116,6 +120,7 @@ def robot(context):
             arguments=[
                 "joint_state_broadcaster",
                 CONTROLLER,
+                "gripper_controller",
                 "--controller-manager",
                 "/controller_manager",
             ],
@@ -172,6 +177,12 @@ def generate_launch_description():
     )
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                "params_file",
+                default_value=config_path("leap_teleop.yaml"),
+                description="leap_teleop parameter file. A copy should keep the demo's "
+                "tool frames and gripper range.",
+            ),
             OpaqueFunction(function=check_demo_packages),
             OpaqueFunction(function=robot),
             switch_to_twist,
@@ -180,6 +191,14 @@ def generate_launch_description():
                     target_action=switch_to_twist, on_exit=[move_to_start_pose]
                 )
             ),
-            include("leap_teleop_bringup", "teleop.launch.py", {"dry_run": "false"}),
+            include(
+                "leap_teleop_bringup",
+                "teleop.launch.py",
+                {
+                    "dry_run": "false",
+                    "gripper": "true",
+                    "params_file": LaunchConfiguration("params_file"),
+                },
+            ),
         ]
     )

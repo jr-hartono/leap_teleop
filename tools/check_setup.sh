@@ -49,8 +49,9 @@ check "a keyboard under /dev/input is readable" \
 
 if [ "$1" = "--demo" ]; then
   echo "Demo"
-  for package in moveit_servo ur_description ur_moveit_config controller_manager \
-    joint_state_broadcaster joint_trajectory_controller; do
+  for package in moveit_servo ur_description ur_moveit_config robotiq_description \
+    controller_manager joint_state_broadcaster joint_trajectory_controller \
+    forward_command_controller; do
     check "$package installed" "sudo apt install ros-jazzy-${package//_/-}" has_package "$package"
   done
 fi

@@ -1,4 +1,4 @@
-# Example configuration. Every value is the default; copy the file and change it for your robot.
+# Default parameters of every node. Copy the file and change it for your robot.
 # (dynamic) marks parameters that can be changed at runtime.
 
 /**/leap_driver:

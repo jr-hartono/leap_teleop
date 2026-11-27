@@ -81,35 +81,44 @@ with one joint position on `command_topic` (default `/gripper_controller/command
 
 ## Try the demo
 
-The demo drives a simulated UR5e in RViz, so no robot is needed. It needs these packages:
+The demo drives a simulated UR5e with a Robotiq 2F-85 gripper, so no robot is needed. It needs
+these packages:
 
 ```bash
 sudo apt install ros-jazzy-moveit-servo ros-jazzy-ur-description ros-jazzy-ur-moveit-config \
-  ros-jazzy-controller-manager ros-jazzy-joint-state-broadcaster ros-jazzy-joint-trajectory-controller
+  ros-jazzy-robotiq-description ros-jazzy-controller-manager ros-jazzy-joint-state-broadcaster \
+  ros-jazzy-joint-trajectory-controller ros-jazzy-forward-command-controller
 export ROS_DOMAIN_ID=42   # keep the demo away from any real robot on your network
 ros2 launch leap_teleop_bringup demo_ur5e_2f85.launch.py
 ```
 
 The demo's robot, controllers and Servo setup are in
 [config/demo_ur5e_2f85](leap_teleop_bringup/config/demo_ur5e_2f85). The arm runs on
-ros2_control mock hardware, and Servo drives it through a `joint_trajectory_controller`.
+ros2_control mock hardware, and Servo drives it through a `joint_trajectory_controller`. The
+gripper's driving knuckle has its own mock hardware and a `forward_command_controller`, which
+`leap_gripper_bridge` commands. The controller manager enforces the URDF joint limits, so the
+gripper closes at the knuckle's 0.5 rad/s velocity limit, about 1.6 s for a full stroke, instead of
+jumping to the pinch. Rotations pivot about `gripper_tcp`, between the finger pads.
 
-Hold **left Alt**, move your right hand above the controller, and the arm follows. Release it to
-stop. To re-centre, release, move your hand back, and press again.
+Hold **left Alt**, move your right hand above the controller, and the arm follows. Pinch your
+thumb and index finger to close the gripper. Release the key to stop; the gripper keeps its last
+position. To re-centre, release, move your hand back, and press again.
+
+Add `rviz:=true` to see the arm and the markers.
 
 Servo logs `Waiting to receive robot state update.` for a few seconds at startup. That stops once
 the arm has moved to its start pose.
 
 The deadman listens on every keyboard it can read; the log lists them as `listening on
-keyboard ...`. To use only one, copy
-[example_arm.yaml](leap_teleop_bringup/config/example_arm.yaml), set `device` to its
-`/dev/input/by-id/...-event-kbd` path, and add `params_file:=/path/to/copy.yaml` to the launch
+keyboard ...`. To use only one, copy the demo's
+[leap_teleop.yaml](leap_teleop_bringup/config/demo_ur5e_2f85/leap_teleop.yaml), set `device` to
+its `/dev/input/by-id/...-event-kbd` path, and add `params_file:=/path/to/copy.yaml` to the launch
 command.
 
 ## Use it with your robot
 
 1. Start your robot's MoveIt Servo, with conservative velocity and acceleration limits.
-2. Copy [example_arm.yaml](leap_teleop_bringup/config/example_arm.yaml) and set:
+2. Copy [leap_teleop_defaults.yaml](leap_teleop_bringup/config/leap_teleop_defaults.yaml) and set:
    - `base_frame`, `tool_frame` and `planning_frame`. `tool_frame` must be the real TCP, because
      rotations pivot about its origin.
    - `cartesian_command_topic`, matching Servo's `cartesian_command_in_topic`.
@@ -162,7 +171,7 @@ command.
 
 ## Visualization
 
-Add `rviz:=true` to `teleop.launch.py` or the demo to open a second RViz window with the
+Add `rviz:=true` to `teleop.launch.py` or the demo to open an RViz window with the robot and the
 `leap_teleop_viz` markers. The fixed frame is `base_link`; change it in RViz if your base frame
 differs.
 
@@ -232,7 +241,6 @@ container, run the driver and deadman on the host and the rest in the container.
 
 ## Planned
 
-- Demo of gripper control with a pinch gesture.
 - Gripper latching: on engage, the gripper waits until the finger closure crosses the last
   commanded closure before it follows, instead of jumping to the current closure.
 - Dual-arm control: the left and right hands each drive one arm.
@@ -248,8 +256,8 @@ colcon test && colcon test-result --verbose
 The workspace builds without the Ultraleap service. Only `leap_driver` is skipped.
 
 Each node's parameters are defined in its package's `config/*_parameters.yaml`, which sets types,
-defaults, ranges and whether a parameter can change at runtime. CI checks `example_arm.yaml`
-against these definitions with `generate_parameter_library_validate --strict`; see
+defaults, ranges and whether a parameter can change at runtime. CI checks
+`leap_teleop_defaults.yaml` and the demo's `leap_teleop.yaml` against these definitions with `generate_parameter_library_validate --strict`; see
 [the workflow](.github/workflows/build-and-test.yml) for the command.
 
 C++ is formatted with the repo's [.clang-format](.clang-format), and Python with `ruff format`.

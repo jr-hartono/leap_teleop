@@ -1,12 +1,18 @@
 controller_manager:
   ros__parameters:
     update_rate: 500  # Hz
+    # Clamp commands to the URDF joint limits, so the gripper moves at its URDF velocity limit
+    # instead of jumping to each command.
+    enforce_command_limits: true
 
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
     joint_trajectory_controller:
       type: joint_trajectory_controller/JointTrajectoryController
+
+    gripper_controller:
+      type: forward_command_controller/ForwardCommandController
 
 joint_trajectory_controller:
   ros__parameters:
@@ -36,3 +42,9 @@ joint_trajectory_controller:
       wrist_1_joint: { trajectory: 0.2, goal: 0.1 }
       wrist_2_joint: { trajectory: 0.2, goal: 0.1 }
       wrist_3_joint: { trajectory: 0.2, goal: 0.1 }
+
+gripper_controller:
+  ros__parameters:
+    joints:
+      - robotiq_85_left_knuckle_joint
+    interface_name: position
