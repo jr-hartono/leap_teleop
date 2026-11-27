@@ -99,7 +99,7 @@ gripper's driving knuckle has its own mock hardware and a `forward_command_contr
 `leap_gripper_bridge` commands. The bridge's `max_velocity` moves the gripper at the knuckle's
 0.5 rad/s velocity limit, about 1.6 s for a full stroke, instead of jumping to the pinch. Rotations pivot about `gripper_tcp`, between the finger pads.
 
-Hold **left Alt**, move your right hand above the controller, and the arm follows. Pinch your
+Hold **left Ctrl**, move your right hand above the controller, and the arm follows. Pinch your
 thumb and index finger to close the gripper. Release the key to stop; the gripper keeps its last
 position. To re-centre, release, move your hand back, and press again.
 

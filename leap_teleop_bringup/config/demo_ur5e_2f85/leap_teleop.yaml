@@ -4,7 +4,7 @@
 
 /**/leap_teleop_deadman:
   ros__parameters:
-    key: leftalt
+    key: leftctrl
     device: ""
 
 /**/leap_teleop_mapper:

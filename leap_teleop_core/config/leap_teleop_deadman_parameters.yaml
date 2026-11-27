@@ -3,7 +3,7 @@
 leap_teleop_deadman:
   key:
     type: string
-    default_value: leftalt
+    default_value: leftctrl
     description: "Key to authorize motion: a-z, 0-9, f1-f12, space, enter, tab, esc, backspace, delete, insert, home, end, pageup, pagedown, up, down, left, right, capslock, and left or right ctrl, shift, alt, meta (for example leftctrl)."
     read_only: true
     validation:

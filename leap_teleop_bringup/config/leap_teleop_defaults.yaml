@@ -11,7 +11,7 @@
     # Key to authorize motion: a-z, 0-9, f1-f12, space, enter, tab, esc, backspace, delete,
     # insert, home, end, pageup, pagedown, up, down, left, right, capslock, and left or right
     # ctrl, shift, alt, meta (for example leftctrl).
-    key: leftalt
+    key: leftctrl
     # Keyboard event device path, /dev/input/by-id/...-event-kbd. Empty listens on all keyboards.
     device: ""
 
