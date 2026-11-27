@@ -219,7 +219,7 @@ class MoveItServoBridge : public rclcpp::Node {
   double kp_linear_ = 4.0;
   double kp_angular_ = 4.0;
   double max_linear_velocity_ = 0.2;
-  double max_angular_velocity_ = 0.5;
+  double max_angular_velocity_ = 0.6;
   double publish_period_ = 0.01;
   bool dry_run_ = true;
   bool have_target_ = false;

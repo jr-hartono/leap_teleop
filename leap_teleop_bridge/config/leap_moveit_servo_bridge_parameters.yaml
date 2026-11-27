@@ -55,7 +55,7 @@ leap_moveit_servo_bridge:
       lt_eq<>: [2.0]
   max_angular_velocity:
     type: double
-    default_value: 0.5
+    default_value: 0.6
     description: "Angular velocity cap, in rad/s."
     read_only: false
     validation:

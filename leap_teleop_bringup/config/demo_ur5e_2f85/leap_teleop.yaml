@@ -17,8 +17,9 @@
 
     yaw: 0.0
 
-    translation_scale: 1.0
-    rotation_scale: 1.0
+    # Tuned to cover the UR5e's reach.
+    translation_scale: 2.0
+    rotation_scale: 1.5
 
     deadband_translation: 0.002
     deadband_rotation: 0.5
@@ -42,8 +43,7 @@
     kp_linear: 4.0
     kp_angular: 4.0
     max_linear_velocity: 0.2
-    max_angular_velocity: 0.5
-
+    max_angular_velocity: 0.6
     publish_period: 0.01
 
     dry_run: true
@@ -52,8 +52,7 @@
   ros__parameters:
     command_topic: /gripper_controller/commands
     open_position: 0.0
-    # The knuckle's upper limit in robotiq_description's URDF, in radians.
-    closed_position: 0.8
+    closed_position: 0.8 # The knuckle's upper limit in robotiq_description's URDF, in radians.
     max_velocity: 0.5
     publish_period: 0.01
 
