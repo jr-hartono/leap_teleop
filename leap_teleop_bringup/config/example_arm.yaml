@@ -82,6 +82,18 @@
     # Log commands instead of publishing them. Overridden by the launch argument dry_run.
     dry_run: true
 
+/**/leap_gripper_bridge:
+  ros__parameters:
+    # Command topic of a forward_command_controller with one gripper joint.
+    command_topic: /gripper_controller/commands
+    # Joint position at closure 0, fully open. (dynamic)
+    open_position: 0.0
+    # Joint position at closure 1, fully closed. (dynamic)
+    closed_position: 1.0
+
+    # Log commands instead of publishing them. Overridden by the launch argument dry_run.
+    dry_run: true
+
 /**/leap_teleop_viz:
   ros__parameters:
     # TF frame of the markers. Must match the mapper's base_frame.

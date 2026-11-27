@@ -12,13 +12,30 @@ find_package(Eigen3 REQUIRED)
 find_package(generate_parameter_library REQUIRED)
 generate_parameter_library(leap_moveit_servo_bridge_parameters
   config/leap_moveit_servo_bridge_parameters.yaml)
+generate_parameter_library(leap_gripper_bridge_parameters
+  config/leap_gripper_bridge_parameters.yaml)
 
-install(FILES config/leap_moveit_servo_bridge_parameters.yaml
-  DESTINATION share/${PROJECT_NAME}/parameter_definitions)
+install(FILES
+  config/leap_moveit_servo_bridge_parameters.yaml
+  config/leap_gripper_bridge_parameters.yaml
+  DESTINATION share/${PROJECT_NAME}/parameter_definitions
+)
 
 ament_auto_add_executable(leap_moveit_servo_bridge
   src/leap_moveit_servo_bridge.cpp
 )
 target_link_libraries(leap_moveit_servo_bridge Eigen3::Eigen leap_moveit_servo_bridge_parameters)
+
+ament_auto_add_executable(leap_gripper_bridge
+  src/leap_gripper_bridge.cpp
+)
+target_link_libraries(leap_gripper_bridge leap_gripper_bridge_parameters)
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(test_gripper_command test/test_gripper_command.cpp)
+  target_include_directories(test_gripper_command PRIVATE include)
+endif()
 
 ament_auto_package(USE_SCOPED_HEADER_INSTALL_DIR)

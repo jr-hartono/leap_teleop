@@ -9,13 +9,15 @@ Leap v1 → leap_driver → leap_teleop_mapper → leap_moveit_servo_bridge → 
           raw hands       filtering + pose delta    robot-specific twist
 ```
 
-Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo setup.
+Only the bridges know about the robot. `leap_moveit_servo_bridge` drives any arm that has a
+MoveIt Servo setup. The optional `leap_gripper_bridge` drives a gripper from the pinch, through a
+`forward_command_controller`.
 
 | Package | Contents |
 |---|---|
 | `leap_teleop_msgs` | Message definitions |
 | `leap_teleop_core` | `leap_driver`, `leap_teleop_deadman`, `leap_teleop_mapper` nodes |
-| `leap_teleop_bridge` | `leap_moveit_servo_bridge` node |
+| `leap_teleop_bridge` | `leap_moveit_servo_bridge` and `leap_gripper_bridge` nodes |
 | `leap_teleop_viz` | `leap_teleop_viz` node, RViz markers |
 | `leap_teleop_bringup` | Launch files and example configuration |
 
@@ -25,13 +27,14 @@ Only the bridge knows about the robot. It drives any arm that has a MoveIt Servo
 | `/leap_teleop/teleop_hand/<side>` | `TeleopHand` | mapper | Filtered palm pose in the operator frame and filtered closure, while the hand is visible |
 | `/leap_teleop/deadman` | `DeadmanState` | deadman | Whether the deadman key is held |
 | `/leap_teleop/pose_delta/<side>` | `TeleopDelta` | mapper | Pose change since engagement; the bridge's input |
-| `/leap_teleop/gripper/<side>` | `TeleopGripper` | mapper | Gripper closure from 0 (open) to 1 (closed), from the pinch; published only while engaged |
+| `/leap_teleop/gripper/<side>` | `TeleopGripper` | mapper | Gripper closure from 0 (open) to 1 (closed), from the pinch; published only while engaged; the gripper bridge's input |
 | `/leap_teleop/state/<side>` | `TeleopState` | mapper | `idle`, `engaged` or `hold`, with the reason |
 | `/leap_teleop/command/<side>` | `geometry_msgs/TwistStamped` | bridge | Twist the bridge computed, also in dry run |
 | `/leap_teleop/markers` | `visualization_msgs/MarkerArray` | viz | RViz markers of the command and the hands |
 
-The bridge publishes `geometry_msgs/TwistStamped` on `cartesian_command_topic`
-(default `/servo_node/delta_twist_cmds`).
+The Servo bridge publishes `geometry_msgs/TwistStamped` on `cartesian_command_topic`
+(default `/servo_node/delta_twist_cmds`). The gripper bridge publishes `std_msgs/Float64MultiArray`
+with one joint position on `command_topic` (default `/gripper_controller/commands`).
 
 ## Requirements
 
@@ -113,13 +116,17 @@ command.
    ros2 launch leap_teleop_bringup teleop.launch.py params_file:=/path/to/my_arm.yaml
    ```
 
-   Two launch arguments set values for the nodes:
-   - `side`: `right` (default) or `left`, the hand the bridge and the viz's arm markers follow.
+   These launch arguments set values for the nodes:
+   - `side`: `right` (default) or `left`, the hand the bridges and the viz's arm markers follow.
      The mapper processes both hands.
    - `tracking_mode`: the mode the driver requests from `ultraleap-hand-tracking-service`,
      `desktop` (default) with the cameras facing up and LED facing the operator, or
      `head_mounted` with cameras facing forward and the LED facing down. Only the driver reads
      it; the mapper takes the mode the service reports from the tracking frame.
+   - `gripper`: `true` starts `leap_gripper_bridge`; default `false`. Set `command_topic` to
+     your gripper's `forward_command_controller`, and `open_position` and `closed_position` to
+     its joint positions at closure 0 and 1. The bridge maps the closure linearly between them.
+     `dry_run` applies to it too.
 
 4. Select Servo's twist input. Servo ignores `command_in_type` in YAML, so do this after every
    Servo start. Also make sure the controller behind Servo's `command_out_topic` is active.
@@ -176,6 +183,7 @@ Tune in dry run first and change one parameter at a time. All of these can be ch
 | Chatter at the edge of the deadband | `deadband_hysteresis` | Increase |
 | Gripper does not fully close or open | `pinch_closed_mm`, `pinch_open_mm` | Adjust to your hand |
 | Gripper target jitters or lags | `gripper_filter_min_cutoff`, `gripper_filter_beta`, `gripper_deadband` | Adjust |
+| Gripper closes the wrong way or overshoots its range | `open_position`, `closed_position` | Match your gripper joint |
 | Arm travels too little or too much | `translation_scale`, `rotation_scale` | Adjust |
 | Sluggish or twitchy response | `kp_linear`, `kp_angular` | Increase or decrease |
 | Motion too fast | `max_linear_velocity`, `max_angular_velocity` | Decrease |
@@ -192,7 +200,8 @@ engages both. For each hand it maps the palm into an operator frame following
 [REP 103](https://www.ros.org/reps/rep-0103.html) (x forward, y left, z up), which depends on the
 reported tracking mode, and filters the pose and the pinch closure. It publishes the result as
 `teleop_hand/<side>`, rotates the pose into the robot's base axes by `yaw`, and gates the gripper
-closure with `gripper_deadband` while engaged. When the key is pressed, it latches the hand pose
+closure with `gripper_deadband` while engaged; the gripper bridge maps each closure it sends
+onto the joint range. When the key is pressed, it latches the hand pose
 and publishes the change since then, with the translation multiplied by `translation_scale` and
 the rotation angle multiplied by `rotation_scale`. The bridge latches the tool pose from TF on the
 same press, adds the translation, applies the rotation about the tool origin, and drives Servo
@@ -218,7 +227,9 @@ container, run the driver and deadman on the host and the rest in the container.
 
 ## Planned
 
-- Gripper control with a pinch gesture, with a demo.
+- Demo of gripper control with a pinch gesture.
+- Gripper latching: on engage, the gripper waits until the finger closure crosses the last
+  commanded closure before it follows, instead of jumping to the current closure.
 - Dual-arm control: the left and right hands each drive one arm.
 - Demo with the arms of a Unitree G1 humanoid.
 

@@ -1,0 +1,32 @@
+# Parameters of leap_gripper_bridge, enforced by the generated ParamListener.
+
+leap_gripper_bridge:
+  side:
+    type: string
+    default_value: right
+    description: "Hand whose gripper/<side> the bridge follows: right | left."
+    read_only: true
+    validation:
+      one_of<>: [["right", "left"]]
+  command_topic:
+    type: string
+    default_value: "/gripper_controller/commands"
+    description: "Command topic of a forward_command_controller with one gripper joint."
+    read_only: true
+    validation:
+      not_empty<>: []
+  open_position:
+    type: double
+    default_value: 0.0
+    description: "Joint position at closure 0, fully open."
+    read_only: false
+  closed_position:
+    type: double
+    default_value: 1.0
+    description: "Joint position at closure 1, fully closed.."
+    read_only: false
+  dry_run:
+    type: bool
+    default_value: true
+    description: "Log commands instead of publishing them. Overridden by the launch argument dry_run."
+    read_only: true

@@ -35,6 +35,7 @@ def launch_setup(context, *args):
     side = LaunchConfiguration("side").perform(context)
     tracking_mode = LaunchConfiguration("tracking_mode").perform(context)
     rviz = LaunchConfiguration("rviz").perform(context).lower() == "true"
+    gripper = LaunchConfiguration("gripper").perform(context).lower() == "true"
 
     parameters = [params_file, {"use_sim_time": use_sim_time}]
     side_parameters = parameters + [{"side": side}]
@@ -72,6 +73,16 @@ def launch_setup(context, *args):
             parameters=bridge_parameters,
         ),
     ]
+    if gripper:
+        nodes.append(
+            Node(
+                package="leap_teleop_bridge",
+                executable="leap_gripper_bridge",
+                name="leap_gripper_bridge",
+                namespace=leap_namespace,
+                parameters=bridge_parameters,
+            )
+        )
     if rviz:
         nodes += [
             Node(
@@ -125,7 +136,7 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "side",
                 default_value="right",
-                description="Hand the bridge and the viz arm markers follow: right | left.",
+                description="Hand the bridges and the viz arm markers follow: right | left.",
             ),
             DeclareLaunchArgument(
                 "tracking_mode",
@@ -137,6 +148,11 @@ def generate_launch_description():
                 "dry_run",
                 default_value="true",
                 description="Log bridge commands without publishing them.",
+            ),
+            DeclareLaunchArgument(
+                "gripper",
+                default_value="false",
+                description="Start leap_gripper_bridge, which drives a gripper from the pinch.",
             ),
             DeclareLaunchArgument(
                 "rviz",
